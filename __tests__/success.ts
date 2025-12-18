@@ -18,7 +18,4 @@ let taskPath = path.join(
 )
 let tmr: tmrm.TaskMockRunner = new tmrm.TaskMockRunner(taskPath)
 
-// Set input through environment variable
-// Temporary, until the release assets' naming is fixed, so latest can work again
-process.env['INPUT_version'] = 'v0.1.8'
 tmr.run(true)

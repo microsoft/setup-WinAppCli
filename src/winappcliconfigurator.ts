@@ -29,18 +29,13 @@ export class WinAppCLIConfigurator {
 
     let versionString: string
 
-    let versionWithoutV = this.version
-    if (this.version.startsWith('v')) {
-      versionWithoutV = this.version.substring(1)
-    }
-
     if (this.version === 'latest') {
       versionString = `latest/download`
     } else {
       versionString = `download/${this.version}`
     }
 
-    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${versionWithoutV}-${process.arch}.zip`
+    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${process.arch}.zip`
 
     pipeline.debug(`Downloading tool from ${downloadURL}`)
     let downloadPath: string | null = null

@@ -34576,17 +34576,13 @@ class WinAppCLIConfigurator {
         return __awaiter(this, void 0, void 0, function* () {
             this.validate();
             let versionString;
-            let versionWithoutV = this.version;
-            if (this.version.startsWith('v')) {
-                versionWithoutV = this.version.substring(1);
-            }
             if (this.version === 'latest') {
                 versionString = `latest/download`;
             }
             else {
                 versionString = `download/${this.version}`;
             }
-            const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${versionWithoutV}-${process.arch}.zip`;
+            const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${process.arch}.zip`;
             pipeline.debug(`Downloading tool from ${downloadURL}`);
             let downloadPath = null;
             let archivePath = null;

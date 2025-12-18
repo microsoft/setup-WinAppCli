@@ -42,8 +42,22 @@ describe('action', () => {
 
   it('should have added winapp to path', async () => {
     // Set input through environment variable
-    // Temporary, until the release assets' naming is fixed, so latest can work again
     process.env['INPUT_version'] = 'v0.1.8'
+    await main.run()
+    expect(runMock).toHaveReturned()
+
+    // Verify that all of the core library functions were called correctly
+    expect(warningMock).not.toHaveBeenCalled()
+    expect(errorMock).not.toHaveBeenCalled()
+    expect(addPathMock).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('winapp')
+    )
+  }, 30000)
+
+  it('should have added winapp to path with latest', async () => {
+    // reset input through environment variable
+    process.env['INPUT_version'] = ''
     await main.run()
     expect(runMock).toHaveReturned()
 
