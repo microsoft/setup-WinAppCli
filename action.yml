@@ -1,0 +1,14 @@
+name: 'Setup Windows App Developer CLI'
+description: 'Setup Windows App Developer CLI by adding it to the PATH.'
+author: 'Microsoft'
+branding:
+  icon: 'terminal'
+  color: 'blue'
+inputs:
+  version:
+    required: false
+    description: "The version of the Windows App Developer CLI to be downloaded and configured (e.g. 'v0.1.0')."
+    default: 'latest'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

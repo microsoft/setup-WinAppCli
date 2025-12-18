@@ -1,0 +1,35 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+    "id": "5f23f315-c1ff-4966-ad8a-525a523310a2",
+    "name": "UseWinAppCLI",
+    "friendlyName": "Use Windows App Developer CLI",
+    "description": "Task for installing the Windows App Developer CLI",
+    "helpMarkDown": "",
+    "category": "Utility",
+    "author": "Microsoft",
+    "version": {
+        "Major": 0,
+        "Minor": 1,
+        "Patch": 0
+    },
+    "instanceNameFormat": "Use Windows App Developer CLI $(version)",
+    "minimumAgentVersion": "2.200.0",
+    "inputs": [
+        {
+            "name": "version",
+            "type": "string",
+            "label": "Version",
+            "defaultValue": "latest",
+            "required": false,
+            "helpMarkDown": "Version"
+        }
+    ],
+    "execution": {
+        "Node16": {
+            "target": "index.js"
+        },
+        "Node20_1": {
+            "target": "index.js"
+        }
+    }
+}
