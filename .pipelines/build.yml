@@ -1,0 +1,134 @@
+trigger: none
+
+resources:
+  repositories:
+  - repository: 1ESPipelineTemplates
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+
+parameters:
+  - name: DoEsrp
+    type: boolean
+    default: false
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1ESPipelineTemplates
+  parameters:
+    sdl:
+      sourceAnalysisPool:
+        name: Azure-Pipelines-1ESPT-ExDShared
+        image: windows-latest
+        os: windows
+    stages:
+    - stage: BuildAndTest
+      jobs:
+      - job: Build
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            targetPath: $(Build.ArtifactStagingDirectory)
+            artifactName: vsix
+        pool:
+          name: Azure-Pipelines-1ESPT-ExDShared
+          image: windows-latest
+          os: windows
+        steps:
+        - checkout: self
+        - script: npm install -g tfx-cli
+          displayName: Install TFX
+        - script: npm install
+          displayName: Install Dependencies
+        - script: npm run all
+          displayName: Build
+          env:
+            RUNNER_TEMP: $(Agent.TempDirectory)
+        - ${{ if eq(parameters['DoEsrp'], 'true') }}:
+          - task: EsrpCodeSigning@5
+            displayName: ESRP CodeSigning - VSIX
+            inputs:
+              ConnectedServiceName: $(SigningServiceName)
+              AppRegistrationClientId: $(SigningAppId)
+              AppRegistrationTenantId: $(SigningTenantId)
+              AuthAKVName: $(SigningAKVName)
+              AuthCertName: $(SigningAuthCertName)
+              AuthSignCertName: $(SigningSignCertName)
+              FolderPath: $(System.DefaultWorkingDirectory)
+              Pattern: '*.vsix'
+              signConfigType: inlineSignParams
+              inlineOperation: |-
+                [
+                  {
+                    "KeyCode": "CP-500813",
+                    "OperationCode": "AdoExtensionSign",
+                    "ToolName": "sign",
+                    "ToolVersion": "1.0",
+                    "Parameters": {}
+                  },
+                  {
+                    "KeyCode": "CP-500813",
+                    "OperationCode": "AdoExtensionVerify",
+                    "ToolName": "sign",
+                    "ToolVersion": "1.0",
+                    "Parameters": {}
+                  }
+                ]
+              SessionTimeout: 30
+        - task: CopyFiles@2
+          displayName: Copying VSIX
+          inputs:
+            contents: "$(System.DefaultWorkingDirectory)/ms-wpd-winappcli.windows-app-development-cli-setup-task-*.vsix"
+            flattenFolders: True
+            targetFolder: $(Build.ArtifactStagingDirectory)
+      - job: Test
+        displayName: Tests
+        pool:
+          name: Azure-Pipelines-1ESPT-ExDShared
+          image: windows-latest
+          os: windows
+        steps:
+        - checkout: self
+        - bash: |
+            WINAPPCLIPATH=$(node dist/index.js | grep "^::add-path::" | sed -e "s/^::add-path:://g")
+            if [ "$(expr substr $(uname -s) 1 10)" != "MINGW64_NT" ]; then
+                WINAPPCLIPATH="$(echo $WINAPPCLIPATH | sed 's/C:/\/c/g' | sed 's/\\/\//g')/winapp"
+            else
+                WINAPPCLIPATH="$(echo $WINAPPCLIPATH)\winapp.exe"
+            fi
+            $WINAPPCLIPATH --version
+          displayName: Run GHA Script and check version
+          env:
+            RUNNER_TEMP: $(Agent.TempDirectory)
+    - ${{ if eq(parameters['DoEsrp'], 'true') }}:
+      - stage: PublishToMarketplace
+        trigger: manual
+        jobs:
+        - job: PublishToMarketplaceJob
+          displayName: Publish to Marketplace
+          pool:
+            name: Azure-Pipelines-1ESPT-ExDShared
+            image: windows-latest
+            os: windows
+          steps:
+            - download: current
+              displayName: Download Signed Artifact
+              artifact: vsix
+            - task: NodeTool@0
+              displayName: 'Install Node.js 20.x'
+              inputs:
+                versionSpec: '20.x'
+            - task: TfxInstaller@5
+              displayName: 'Install TFX CLI'
+              inputs:
+                version: '0.*'
+                checkLatest: true
+            - task: 1ES.PublishAzureDevOpsExtension@1
+              displayName: 'Publish the production extension to the Marketplace'
+              inputs:
+                connectTo: 'AzureRM'
+                connectedServiceNameAzureRM: $(SigningServiceName)
+                fileType: 'vsix'
+                vsixFile: '$(Pipeline.Workspace)/vsix/ms-wpd-winappcli.windows-app-development-cli-setup-task-*.vsix'
+                targetPath: '$(Pipeline.Workspace)/vsix'
+                validateExtension: false
+                useV5: true

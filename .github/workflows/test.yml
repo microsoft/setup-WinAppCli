@@ -1,0 +1,30 @@
+name: 'build-test'
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'releases/*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install TFX
+        run: npm install -g tfx-cli
+      - run: |
+          npm install
+      - run: |
+          npm run all
+      - uses: actions/upload-artifact@v6
+        with:
+          name: vsix
+          path: ms-wpd-winappcli.windows-app-development-cli-setup-task-*.vsix
+
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./
+      - run: winapp --version

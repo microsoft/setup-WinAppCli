@@ -1,33 +1,38 @@
-# Project
+<p align="center">
+  <a href="https://github.com/microsoft/setup-WinAppCli/actions"><img alt="setup-WinAppCli status" src="https://github.com/microsoft/setup-WinAppCli/workflows/build-test/badge.svg"></a>
+</p>
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+# Setup Windows App Developer CLI
 
-As the maintainer of this project, please make a few updates:
+This repository contains the source code for the `setup-WinAppCli` GitHub Action as well as the `setup-WinAppCli` Azure DevOps extension.
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+This action/extension sets up the [Windows App Developer CLI](https://github.com/microsoft/WinAppCli) on a runner/agent.
+The Windows App Development CLI is a single command-line interface for managing Windows SDKs, packaging, generating app identity, manifests, certificates, and using build tools with any app framework.
 
-## Contributing
+Example (GitHub Action):
+  
+```yaml
+name: WinApp CLI
+on: [push]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: microsoft/setup-WinAppCli@v0.1
+    - run: winapp restore
+```
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit [Contributor License Agreements](https://cla.opensource.microsoft.com).
-
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
-
-## Trademarks
-
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
-trademarks or logos is subject to and must follow
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+Example (Azure DevOps extension):
+  
+```yaml
+name: WinApp CLI
+trigger:
+- main
+pool:
+  vmImage: 'windows-latest'
+steps:
+- checkout: self
+- task: UseWinAppCLI@0
+- script: winapp restore
+```
