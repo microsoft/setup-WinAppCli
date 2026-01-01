@@ -32,7 +32,7 @@
   "dependencies": {
     "@actions/core": "^2.0.1",
     "@actions/tool-cache": "^2.0.2",
-    "azure-pipelines-task-lib": "^5.2.3",
+    "azure-pipelines-task-lib": "^5.2.4",
     "azure-pipelines-tool-lib": "^2.0.10",
     "fs-extra": "^11.3.3",
     "q": "^1.5.1"
