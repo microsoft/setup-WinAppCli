@@ -38,8 +38,9 @@ extends:
         - task: npmAuthenticate@0
           inputs:
             workingFile: .npmrc
-        - script: npm install -g tfx-cli
-          displayName: Install TFX
+        - task: TfxInstaller@5
+          inputs:
+            version: builtin
         - script: npm install
           displayName: Install Dependencies
         - script: npm run all
