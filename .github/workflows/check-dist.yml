@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: 20.x
 
+      - name: Remove .npmrc to avoid using private registries
+        run: rm -f .npmrc
+
       - name: Install TFX
         run: npm install -g tfx-cli
 

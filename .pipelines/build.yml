@@ -35,6 +35,9 @@ extends:
           os: windows
         steps:
         - checkout: self
+        - task: npmAuthenticate@0
+          inputs:
+            workingFile: .npmrc
         - script: npm install -g tfx-cli
           displayName: Install TFX
         - script: npm install

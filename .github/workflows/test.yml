@@ -11,6 +11,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Remove .npmrc to avoid using private registries
+        run: rm -f .npmrc
       - name: Install TFX
         run: npm install -g tfx-cli
       - run: |
