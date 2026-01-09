@@ -121,11 +121,12 @@ extends:
               displayName: 'Install Node.js 20.x'
               inputs:
                 versionSpec: '20.x'
-            - task: TfxInstaller@5
-              displayName: 'Install TFX CLI'
+            - task: npmAuthenticate@0
               inputs:
-                version: '0.*'
-                checkLatest: true
+                workingFile: .npmrc
+            - task: TfxInstaller@5
+              inputs:
+                version: builtin
             - task: 1ES.PublishAzureDevOpsExtension@1
               displayName: 'Publish the production extension to the Marketplace'
               inputs:
