@@ -19,7 +19,7 @@ jobs:
           npm install
       - run: |
           npm run all
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: vsix
           path: ms-wpd-winappcli.windows-app-development-cli-setup-task-*.vsix
