@@ -11,13 +11,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Remove .npmrc to avoid using private registries
+        run: rm .npmrc
       - name: Install TFX
         run: npm install -g tfx-cli
       - run: |
           npm install
       - run: |
           npm run all
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: vsix
           path: ms-wpd-winappcli.windows-app-development-cli-setup-task-*.vsix
