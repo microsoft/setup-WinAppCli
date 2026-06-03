@@ -2497,7 +2497,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getPlatform = exports.osType = exports.writeFile = exports.exist = exports.stats = exports.debug = exports.error = exports.warning = exports.command = exports.setTaskVariable = exports.getTaskVariable = exports.getSecureFileTicket = exports.getSecureFileName = exports.getEndpointAuthorization = exports.getEndpointAuthorizationParameterRequired = exports.getEndpointAuthorizationParameter = exports.getEndpointAuthorizationSchemeRequired = exports.getEndpointAuthorizationScheme = exports.getEndpointDataParameterRequired = exports.getEndpointDataParameter = exports.getEndpointUrlRequired = exports.getEndpointUrl = exports.getPathInputRequired = exports.getPathInput = exports.filePathSupplied = exports.getDelimitedInput = exports.getPipelineFeature = exports.getBoolFeatureFlag = exports.getBoolInput = exports.getInputRequired = exports.getInput = exports.setSecret = exports.setVariable = exports.getVariables = exports.assertAgent = exports.getVariable = exports.loc = exports.setResourcePath = exports.setSanitizedResult = exports.setResult = exports.setErrStream = exports.setStdStream = exports.AgentHostedMode = exports.Platform = exports.IssueSource = exports.FieldType = exports.ArtifactType = exports.IssueType = exports.TaskState = exports.TaskResult = void 0;
-exports.updateReleaseName = exports.addBuildTag = exports.updateBuildNumber = exports.uploadBuildLog = exports.associateArtifact = exports.uploadArtifact = exports.logIssue = exports.logDetail = exports.setProgress = exports.setEndpoint = exports.addAttachment = exports.uploadSummary = exports.prependPath = exports.uploadFile = exports.CodeCoverageEnabler = exports.CodeCoveragePublisher = exports.TestPublisher = exports.getHttpCertConfiguration = exports.getHttpProxyConfiguration = exports.findMatch = exports.filter = exports.match = exports.tool = exports.execSync = exports.exec = exports.execAsync = exports.rmRF = exports.legacyFindFiles = exports.find = exports.retry = exports.mv = exports.cp = exports.ls = exports.which = exports.resolve = exports.mkdirP = exports.popd = exports.pushd = exports.cd = exports.checkPath = exports.cwd = exports.getAgentMode = exports.getNodeMajorVersion = void 0;
+exports.updateReleaseName = exports.addBuildTag = exports.updateBuildNumber = exports.uploadBuildLog = exports.associateArtifact = exports.uploadArtifact = exports.logIssue = exports.logDetail = exports.setProgress = exports.setEndpoint = exports.addAttachment = exports.uploadSummary = exports.prependPath = exports.uploadFile = exports.CodeCoverageEnabler = exports.CodeCoveragePublisher = exports.TestPublisher = exports.getHttpCertConfiguration = exports.getHttpProxyConfiguration = exports.findMatch = exports.filter = exports.match = exports.tool = exports.execSync = exports.exec = exports.execAsync = exports.rmRF = exports.legacyFindFiles = exports.find = exports.retry = exports.mv = exports.cp = exports.ls = exports.which = exports.resolve = exports.mkdirP = exports.popd = exports.pushd = exports.cd = exports.checkPath = exports.cwd = exports.getSprint = exports.getAgentMode = exports.getNodeMajorVersion = void 0;
 var childProcess = __nccwpck_require__(5317);
 var fs = __nccwpck_require__(9896);
 var path = __nccwpck_require__(6928);
@@ -2555,6 +2555,10 @@ var AgentHostedMode;
     AgentHostedMode[AgentHostedMode["SelfHosted"] = 1] = "SelfHosted";
     AgentHostedMode[AgentHostedMode["MsHosted"] = 2] = "MsHosted";
 })(AgentHostedMode = exports.AgentHostedMode || (exports.AgentHostedMode = {}));
+var SPRINT_ONE_START_UTC_MS = Date.UTC(2010, 7, 14, 0, 0, 0, 0);
+var DAYS_PER_WEEK = 7;
+var DAYS_PER_SPRINT = 21;
+var MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 //-----------------------------------------------------
 // General Helpers
 //-----------------------------------------------------
@@ -2605,7 +2609,7 @@ process.on('uncaughtException', function (err) {
 });
 //
 // Catching unhandled rejections from promises and rethrowing them as exceptions
-// For example, a promise that is rejected but not handled by a .catch() handler in node 10 
+// For example, a promise that is rejected but not handled by a .catch() handler in node 10
 // doesn't cause an uncaughtException but causes in Node 16.
 // For types definitions(Error | Any) see https://nodejs.org/docs/latest-v16.x/api/process.html#event-unhandledrejection
 //
@@ -3172,6 +3176,23 @@ function getAgentMode() {
 }
 exports.getAgentMode = getAgentMode;
 /**
+ * Calculates sprint and week using the same cadence as whatsprintis.it.
+ *
+ * @param date Optional date to evaluate. Defaults to the current date/time.
+ * @returns SprintInfo with `sprint` and `week` properties.
+ */
+function getSprint(date) {
+    var targetDate = date || new Date();
+    var elapsedDays = Math.floor((targetDate.getTime() - SPRINT_ONE_START_UTC_MS) / MILLISECONDS_PER_DAY);
+    var sprintIndex = Math.floor(elapsedDays / DAYS_PER_SPRINT);
+    var dayWithinSprint = ((elapsedDays % DAYS_PER_SPRINT) + DAYS_PER_SPRINT) % DAYS_PER_SPRINT;
+    return {
+        sprint: sprintIndex + 1,
+        week: Math.floor(dayWithinSprint / DAYS_PER_WEEK) + 1
+    };
+}
+exports.getSprint = getSprint;
+/**
  * Returns the process's current working directory.
  * see [process.cwd](https://nodejs.org/api/process.html#process_process_cwd)
  *
@@ -3529,14 +3550,14 @@ function cp(sourceOrOptions, destinationOrSource, optionsOrDestination, continue
         if (!fs.existsSync(destination) && !force) {
             throw new Error((0, exports.loc)('LIB_PathNotFound', 'cp', destination));
         }
-        var hasGlobPattern = /[*?{[!@#]/.test(source);
-        if (hasGlobPattern) {
+        var isPattern = /[*?{\[]/.test(source) || /^[#!]/.test(source) || /[@+!]\(/.test(source);
+        if (isPattern) {
             var sourcesToProcess = [];
             var sourceDir = path.dirname(source);
             sourceDir = sourceDir == '.' ? path.resolve() : sourceDir;
             sourcesToProcess = findMatch(sourceDir, [path.basename(source)]);
             if (sourcesToProcess.length === 0) {
-                (0, exports.debug)("No matches found for glob pattern: ".concat(source));
+                (0, exports.debug)("No matches found for pattern: ".concat(source));
             }
             for (var _i = 0, sourcesToProcess_1 = sourcesToProcess; _i < sourcesToProcess_1.length; _i++) {
                 var src = sourcesToProcess_1[_i];
@@ -7952,10 +7973,15 @@ const os = __nccwpck_require__(857);
 const process = __nccwpck_require__(932);
 const fs = __nccwpck_require__(9896);
 const semver = __nccwpck_require__(2170);
+const util = __nccwpck_require__(9023);
 const tl = __nccwpck_require__(358);
 const cmp = __nccwpck_require__(3898);
 const uuidV4 = __nccwpck_require__(9021);
-let pkg = __nccwpck_require__(614);
+const pkg = __nccwpck_require__(614);
+const libJson = __nccwpck_require__(9683);
+// English fallback messages for bundled scenarios where lib.json localization may not be available
+// Extracted from lib.json at build time so bundlers can inline them
+const englishMessages = libJson.messages || {};
 let userAgent = 'vsts-task-installer/' + pkg.version;
 let requestOptions = {
     // ignoreSslError: true,
@@ -7965,7 +7991,43 @@ let requestOptions = {
     allowRetries: true,
     maxRetries: 2
 };
-tl.setResourcePath(path.join(__dirname, 'lib.json'));
+// Setup localization - works in normal npm install, gracefully degrades in bundled scenarios
+let localizationEnabled = false;
+try {
+    const libJsonPath = path.join(__dirname, 'lib.json');
+    if (tl.exist(libJsonPath)) {
+        // Normal scenario: lib.json and Strings/ directory exist for full localization support
+        tl.setResourcePath(libJsonPath);
+        localizationEnabled = true;
+    }
+    else {
+        // Bundled scenario: lib.json file not at expected path
+        tl.debug('lib.json not found at expected path - using English fallback messages');
+    }
+}
+catch (err) {
+    tl.debug('Could not set resource path for lib.json: ' + err + ' - using English fallback messages');
+}
+/**
+ * Localized string helper with English fallback for bundled scenarios.
+ * In normal scenarios, uses task-lib localization. In bundled scenarios, uses English messages.
+ * @param key Message key from lib.json
+ * @param params Parameters to format into the message
+ */
+function loc(key, ...params) {
+    // In bundled scenarios where lib.json file doesn't exist, use English fallback
+    if (!localizationEnabled) {
+        let template = englishMessages[key] || key;
+        // Use util.format for parameter substitution (same as tl.loc)
+        // Supports %s (string), %d (number), %i (integer), %f (float), %j (JSON), %% (literal %)
+        if (params.length > 0) {
+            return util.format(template, ...params);
+        }
+        return template;
+    }
+    // Normal scenario: use task-lib localization (works when lib.json + Strings/ are available)
+    return tl.loc(key, ...params);
+}
 function debug(message) {
     tl.debug(message);
 }
@@ -7979,7 +8041,7 @@ function prependPath(toolPath) {
         throw new Error('Directory does not exist: ' + toolPath);
     }
     // todo: add a test for path
-    console.log(tl.loc('TOOL_LIB_PrependPath', toolPath));
+    console.log(loc('TOOL_LIB_PrependPath', toolPath));
     let newPath = toolPath + path.delimiter + process.env['PATH'];
     tl.debug('new Path: ' + newPath);
     process.env['PATH'] = newPath;
@@ -8075,7 +8137,7 @@ function findLocalTool(toolName, versionSpec, arch) {
         let cachePath = path.join(cacheRoot, toolName, versionSpec, arch);
         tl.debug('checking cache: ' + cachePath);
         if (tl.exist(cachePath) && tl.exist(`${cachePath}.complete`)) {
-            console.log(tl.loc('TOOL_LIB_FoundInCache', toolName, versionSpec, arch));
+            console.log(loc('TOOL_LIB_FoundInCache', toolName, versionSpec, arch));
             toolPath = cachePath;
         }
         else {
@@ -8141,7 +8203,7 @@ function downloadTool(url, fileName, handlers, additionalHeaders) {
                 }
                 // make sure that the folder exists
                 tl.mkdirP(path.dirname(destPath));
-                console.log(tl.loc('TOOL_LIB_Downloading', url.replace(/sig=[^&]*/, "sig=-REDACTED-")));
+                console.log(loc('TOOL_LIB_Downloading', url.replace(/sig=[^&]*/, "sig=-REDACTED-")));
                 tl.debug('destination ' + destPath);
                 if (fs.existsSync(destPath)) {
                     throw new Error("Destination file path already exists");
@@ -8304,7 +8366,7 @@ function cacheDir(sourceDir, tool, version, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         version = semver.clean(version);
         arch = arch || os.arch();
-        console.log(tl.loc('TOOL_LIB_CachingTool', tool, version, arch));
+        console.log(loc('TOOL_LIB_CachingTool', tool, version, arch));
         tl.debug('source dir: ' + sourceDir);
         if (!tl.stats(sourceDir).isDirectory()) {
             throw new Error('sourceDir is not a directory');
@@ -8337,7 +8399,7 @@ function cacheFile(sourceFile, targetFile, tool, version, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         version = semver.clean(version);
         arch = arch || os.arch();
-        console.log(tl.loc('TOOL_LIB_CachingTool', tool, version, arch));
+        console.log(loc('TOOL_LIB_CachingTool', tool, version, arch));
         tl.debug('source file:' + sourceFile);
         if (!tl.stats(sourceFile).isFile()) {
             throw new Error('sourceFile is not a file');
@@ -8382,7 +8444,7 @@ function extract7z(file, dest, _7zPath, overwriteDest) {
         if (!file) {
             throw new Error("parameter 'file' is required");
         }
-        console.log(tl.loc('TOOL_LIB_ExtractingArchive'));
+        console.log(loc('TOOL_LIB_ExtractingArchive'));
         dest = _createExtractFolder(dest);
         let originalCwd = process.cwd();
         try {
@@ -8441,7 +8503,7 @@ function extractTar(file, destination) {
     return __awaiter(this, void 0, void 0, function* () {
         // mkdir -p node/4.7.0/x64
         // tar xzC ./node/4.7.0/x64 -f node-v4.7.0-darwin-x64.tar.gz --strip-components 1
-        console.log(tl.loc('TOOL_LIB_ExtractingArchive'));
+        console.log(loc('TOOL_LIB_ExtractingArchive'));
         let dest = _createExtractFolder(destination);
         let tr = tl.tool('tar');
         tr.arg(['xC', dest, '-f', file]);
@@ -8455,7 +8517,7 @@ function extractZip(file, destination) {
         if (!file) {
             throw new Error("parameter 'file' is required");
         }
-        console.log(tl.loc('TOOL_LIB_ExtractingArchive'));
+        console.log(loc('TOOL_LIB_ExtractingArchive'));
         let dest = _createExtractFolder(destination);
         if (process.platform == 'win32') {
             // build the powershell command
@@ -8678,9 +8740,12 @@ function parseCommaParts(str) {
   return parts;
 }
 
-function expandTop(str) {
+function expandTop(str, options) {
   if (!str)
     return [];
+
+  options = options || {};
+  var max = options.max == null ? Infinity : options.max;
 
   // I don't know why Bash 4.3 does this, but it does.
   // Anything starting with {} will have the first two bytes preserved
@@ -8692,7 +8757,7 @@ function expandTop(str) {
     str = '\\{\\}' + str.substr(2);
   }
 
-  return expand(escapeBraces(str), true).map(unescapeBraces);
+  return expand(escapeBraces(str), max, true).map(unescapeBraces);
 }
 
 function identity(e) {
@@ -8713,7 +8778,7 @@ function gte(i, y) {
   return i >= y;
 }
 
-function expand(str, isTop) {
+function expand(str, max, isTop) {
   var expansions = [];
 
   var m = balanced('{', '}', str);
@@ -8727,7 +8792,7 @@ function expand(str, isTop) {
     // {a},b}
     if (m.post.match(/,(?!,).*\}/)) {
       str = m.pre + '{' + m.body + escClose + m.post;
-      return expand(str);
+      return expand(str, max, true);
     }
     return [str];
   }
@@ -8739,10 +8804,10 @@ function expand(str, isTop) {
     n = parseCommaParts(m.body);
     if (n.length === 1) {
       // x{{a,b}}y ==> x{a}y x{b}y
-      n = expand(n[0], false).map(embrace);
+      n = expand(n[0], max, false).map(embrace);
       if (n.length === 1) {
         var post = m.post.length
-          ? expand(m.post, false)
+          ? expand(m.post, max, false)
           : [''];
         return post.map(function(p) {
           return m.pre + n[0] + p;
@@ -8757,7 +8822,7 @@ function expand(str, isTop) {
   // no need to expand pre, since it is guaranteed to be free of brace-sets
   var pre = m.pre;
   var post = m.post.length
-    ? expand(m.post, false)
+    ? expand(m.post, max, false)
     : [''];
 
   var N;
@@ -8767,7 +8832,7 @@ function expand(str, isTop) {
     var y = numeric(n[1]);
     var width = Math.max(n[0].length, n[1].length)
     var incr = n.length == 3
-      ? Math.abs(numeric(n[2]))
+      ? Math.max(Math.abs(numeric(n[2])), 1)
       : 1;
     var test = lte;
     var reverse = y < x;
@@ -8779,7 +8844,7 @@ function expand(str, isTop) {
 
     N = [];
 
-    for (var i = x; test(i, y); i += incr) {
+    for (var i = x; test(i, y) && N.length < max; i += incr) {
       var c;
       if (isAlphaSequence) {
         c = String.fromCharCode(i);
@@ -8801,11 +8866,11 @@ function expand(str, isTop) {
       N.push(c);
     }
   } else {
-    N = concatMap(n, function(el) { return expand(el, false) });
+    N = concatMap(n, function(el) { return expand(el, max, false) });
   }
 
   for (var j = 0; j < N.length; j++) {
-    for (var k = 0; k < post.length; k++) {
+    for (var k = 0; k < post.length && expansions.length < max; k++) {
       var expansion = pre + N[j] + post[k];
       if (!isTop || isSequence || expansion)
         expansions.push(expansion);
@@ -8814,7 +8879,6 @@ function expand(str, isTop) {
 
   return expansions;
 }
-
 
 
 /***/ }),
@@ -13628,10 +13692,10 @@ var parseValues = function parseQueryStringValues(str, options) {
     var limit = options.parameterLimit === Infinity ? void undefined : options.parameterLimit;
     var parts = cleanStr.split(
         options.delimiter,
-        options.throwOnLimitExceeded ? limit + 1 : limit
+        options.throwOnLimitExceeded && typeof limit !== 'undefined' ? limit + 1 : limit
     );
 
-    if (options.throwOnLimitExceeded && parts.length > limit) {
+    if (options.throwOnLimitExceeded && typeof limit !== 'undefined' && parts.length > limit) {
         throw new RangeError('Parameter limit exceeded. Only ' + limit + ' parameter' + (limit === 1 ? '' : 's') + ' allowed.');
     }
 
@@ -13775,9 +13839,12 @@ var parseObject = function (chain, val, options, valuesParsed) {
     return leaf;
 };
 
-var splitKeyIntoSegments = function splitKeyIntoSegments(givenKey, options) {
-    var key = options.allowDots ? givenKey.replace(/\.([^.[]+)/g, '[$1]') : givenKey;
+// Split a key like "a[b][c[]]" into ['a', '[b]', '[c[]]'] while preserving
+// qs parse semantics for depth/prototype guards.
+var splitKeyIntoSegments = function splitKeyIntoSegments(originalKey, options) {
+    var key = options.allowDots ? originalKey.replace(/\.([^.[]+)/g, '[$1]') : originalKey;
 
+    // depth <= 0 keeps the whole key as one segment
     if (options.depth <= 0) {
         if (!options.plainObjects && has.call(Object.prototype, key)) {
             if (!options.allowPrototypes) {
@@ -13788,14 +13855,11 @@ var splitKeyIntoSegments = function splitKeyIntoSegments(givenKey, options) {
         return [key];
     }
 
-    var brackets = /(\[[^[\]]*])/;
-    var child = /(\[[^[\]]*])/g;
+    var segments = [];
 
-    var segment = brackets.exec(key);
-    var parent = segment ? key.slice(0, segment.index) : key;
-
-    var keys = [];
-
+    // parent before the first '[' (may be empty if key starts with '[')
+    var first = key.indexOf('[');
+    var parent = first >= 0 ? key.slice(0, first) : key;
     if (parent) {
         if (!options.plainObjects && has.call(Object.prototype, parent)) {
             if (!options.allowPrototypes) {
@@ -13803,32 +13867,62 @@ var splitKeyIntoSegments = function splitKeyIntoSegments(givenKey, options) {
             }
         }
 
-        keys[keys.length] = parent;
+        segments[segments.length] = parent;
     }
 
-    var i = 0;
-    while ((segment = child.exec(key)) !== null && i < options.depth) {
-        i += 1;
+    var n = key.length;
+    var open = first;
+    var collected = 0;
 
-        var segmentContent = segment[1].slice(1, -1);
-        if (!options.plainObjects && has.call(Object.prototype, segmentContent)) {
-            if (!options.allowPrototypes) {
-                return;
+    while (open >= 0 && collected < options.depth) {
+        var level = 1;
+        var i = open + 1;
+        var close = -1;
+
+        // balance nested '[' and ']' inside this bracket group using a nesting level counter
+        while (i < n && close < 0) {
+            var cu = key.charCodeAt(i);
+            if (cu === 0x5B) { // '['
+                level += 1;
+            } else if (cu === 0x5D) { // ']'
+                level -= 1;
+                if (level === 0) {
+                    close = i; // found matching close; loop will exit by condition
+                }
             }
+            i += 1;
         }
 
-        keys[keys.length] = segment[1];
+        if (close < 0) {
+            // Unterminated group: wrap the raw remainder in one bracket pair so it stays
+            // a single literal segment (e.g. "[[]b" -> "[[]b]"); we do not infer missing ']'.
+            segments[segments.length] = '[' + key.slice(open) + ']';
+            return segments;
+        }
+
+        var seg = key.slice(open, close + 1);
+        // prototype guard for the content of this group
+        var content = seg.slice(1, -1);
+        if (!options.plainObjects && has.call(Object.prototype, content) && !options.allowPrototypes) {
+            return;
+        }
+
+        segments[segments.length] = seg;
+        collected += 1;
+
+        // find the next '[' after this balanced group
+        open = key.indexOf('[', close + 1);
     }
 
-    if (segment) {
+    if (open >= 0) {
         if (options.strictDepth === true) {
             throw new RangeError('Input depth exceeded depth option of ' + options.depth + ' and strictDepth is true');
         }
 
-        keys[keys.length] = '[' + key.slice(segment.index) + ']';
+        segments[segments.length] = '[' + key.slice(open) + ']';
     }
 
-    return keys;
+    return segments;
 };
 
 var parseKeys = function parseQueryStringKeys(givenKey, val, options, valuesParsed) {
@@ -14060,7 +14154,7 @@ var stringify = function stringify(
 
     if (obj === null) {
         if (strictNullHandling) {
-            return encoder && !encodeValuesOnly ? encoder(prefix, defaults.encoder, charset, 'key', format) : prefix;
+            return formatter(encoder && !encodeValuesOnly ? encoder(prefix, defaults.encoder, charset, 'key', format) : prefix);
         }
 
         obj = '';
@@ -14084,7 +14178,9 @@ var stringify = function stringify(
     if (generateArrayPrefix === 'comma' && isArray(obj)) {
         // we need to join elements in
         if (encodeValuesOnly && encoder) {
-            obj = utils.maybeMap(obj, encoder);
+            obj = utils.maybeMap(obj, function (v) {
+                return v == null ? v : encoder(v);
+            });
         }
         objKeys = [{ value: obj.length > 0 ? obj.join(',') || null : void undefined }];
     } else if (isArray(filter)) {
@@ -14254,6 +14350,11 @@ module.exports = function (object, opts) {
     var sideChannel = getSideChannel();
     for (var i = 0; i < objKeys.length; ++i) {
         var key = objKeys[i];
+
+        if (typeof key === 'undefined' || key === null) {
+            continue;
+        }
+
         var value = obj[key];
 
         if (options.skipNulls && value === null) {
@@ -14287,10 +14388,10 @@ module.exports = function (object, opts) {
     if (options.charsetSentinel) {
         if (options.charset === 'iso-8859-1') {
             // encodeURIComponent('&#10003;'), the "numeric entity" representation of a checkmark
-            prefix += 'utf8=%26%2310003%3B&';
+            prefix += 'utf8=%26%2310003%3B' + options.delimiter;
         } else {
             // encodeURIComponent('✓')
-            prefix += 'utf8=%E2%9C%93&';
+            prefix += 'utf8=%E2%9C%93' + options.delimiter;
         }
     }
 
@@ -14760,9 +14861,8 @@ module.exports = function getSideChannelList() {
 			}
 		},
 		'delete': function (key) {
-			var root = $o && $o.next;
 			var deletedNode = listDelete($o, key);
-			if (deletedNode && root && root === deletedNode) {
+			if (deletedNode && $o && !$o.next) {
 				$o = void undefined;
 			}
 			return !!deletedNode;
@@ -14784,7 +14884,6 @@ module.exports = function getSideChannelList() {
 			listSet(/** @type {NonNullable<typeof $o>} */ ($o), key, value);
 		}
 	};
-	// @ts-expect-error TODO: figure out why this is erroring
 	return channel;
 };
 
@@ -16250,6 +16349,14 @@ function binPath() {
 
 /***/ }),
 
+/***/ 9683:
+/***/ ((module) => {
+
+module.exports = eval("require")("./lib.json");
+
+
+/***/ }),
+
 /***/ 2613:
 /***/ ((module) => {
 
@@ -16374,7 +16481,7 @@ module.exports = require("zlib");
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"azure-pipelines-tool-lib","version":"2.0.10","description":"Azure Pipelines Tool Installer Lib for CI/CD Tasks","main":"tool.js","scripts":{"build":"node make.js build","test":"node make.js test","sample":"node make.js sample","units":"node make.js units"},"repository":{"type":"git","url":"git+https://github.com/microsoft/azure-pipelines-tool-lib.git"},"keywords":["VSTS"],"author":"Microsoft","license":"MIT","bugs":{"url":"https://github.com/microsoft/azure-pipelines-tool-lib/issues"},"homepage":"https://github.com/microsoft/azure-pipelines-tool-lib#readme","dependencies":{"@types/semver":"^5.3.0","@types/uuid":"^3.4.5","azure-pipelines-task-lib":"^4.1.0","semver":"^5.7.0","semver-compare":"^1.0.0","typed-rest-client":"^1.8.6","uuid":"^3.3.2"},"devDependencies":{"@types/mocha":"^5.2.7","@types/node":"^16.11.39","@types/shelljs":"^0.8.4","@types/xml2js":"^0.4.5","mocha":"^6.2.3","nock":"13.0.4","shelljs":"^0.8.5","typescript":"^4.0.5","xml2js":"^0.4.23"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"azure-pipelines-tool-lib","version":"2.0.12","description":"Azure Pipelines Tool Installer Lib for CI/CD Tasks","main":"tool.js","scripts":{"build":"node make.js build","test":"nyc --reporter=cobertura --reporter=html node make.js test","sample":"node make.js sample","units":"node make.js units"},"repository":{"type":"git","url":"git+https://github.com/microsoft/azure-pipelines-tool-lib.git"},"keywords":["VSTS"],"author":"Microsoft","license":"MIT","bugs":{"url":"https://github.com/microsoft/azure-pipelines-tool-lib/issues"},"homepage":"https://github.com/microsoft/azure-pipelines-tool-lib#readme","dependencies":{"@types/semver":"^5.3.0","@types/uuid":"^3.4.5","azure-pipelines-task-lib":"^5.2.7","semver":"^5.7.0","semver-compare":"^1.0.0","typed-rest-client":"^1.8.6","uuid":"^3.3.2"},"devDependencies":{"@types/mocha":"^5.2.7","@types/node":"^16.11.39","@types/shelljs":"^0.8.4","@types/xml2js":"^0.4.5","mocha":"^6.2.3","nock":"13.0.4","shelljs":"^0.8.5","typescript":"^4.0.5","xml2js":"^0.4.23","nyc":"^17.0.0"}}');
 
 /***/ })
 
