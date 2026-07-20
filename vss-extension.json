@@ -2,7 +2,7 @@
     "manifestVersion": 1,
     "id": "windows-app-development-cli-setup-task",
     "name": "Windows App Development CLI Tasks",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "publisher": "ms-wpd-winappcli",
     "public": true,
     "targets": [

@@ -1,6 +1,6 @@
 {
   "name": "setup-winappcli",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "description": "Setup Windows App Development CLI GitHub Action",
   "main": "lib/src/main.js",
