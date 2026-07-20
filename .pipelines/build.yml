@@ -118,9 +118,9 @@ extends:
               displayName: Download Signed Artifact
               artifact: vsix
             - task: NodeTool@0
-              displayName: 'Install Node.js 20.x'
+              displayName: 'Install Node.js 24.x'
               inputs:
-                versionSpec: '20.x'
+                versionSpec: '24.x'
             - task: npmAuthenticate@0
               inputs:
                 workingFile: .npmrc
