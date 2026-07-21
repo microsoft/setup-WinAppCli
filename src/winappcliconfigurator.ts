@@ -38,15 +38,13 @@ export class WinAppCLIConfigurator {
     const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${process.arch}.zip`
 
     pipeline.debug(`Downloading tool from ${downloadURL}`)
-    let downloadPath: string | null = null
-    let archivePath: string | null = null
     const randomDir: string = crypto.randomUUID()
     const tempDir = path.join(os.tmpdir(), 'tmp', 'runner', randomDir)
     pipeline.debug(`Creating tempdir ${tempDir}`)
     await pipeline.mkdirP(tempDir)
-    downloadPath = await pipeline.downloadTool(downloadURL)
+    const downloadPath: string = await pipeline.downloadTool(downloadURL)
 
-    archivePath = await pipeline.extractZip(downloadPath, tempDir)
+    const archivePath: string = await pipeline.extractZip(downloadPath, tempDir)
 
     await this.moveToPath(archivePath, 'winapp.exe', pipeline)
 

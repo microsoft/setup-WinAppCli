@@ -11909,14 +11909,12 @@ var WinAppCLIConfigurator = class {
     }
     const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${process.arch}.zip`;
     pipeline.debug(`Downloading tool from ${downloadURL}`);
-    let downloadPath = null;
-    let archivePath = null;
     const randomDir = crypto.randomUUID();
     const tempDir = path.join(os.tmpdir(), "tmp", "runner", randomDir);
     pipeline.debug(`Creating tempdir ${tempDir}`);
     await pipeline.mkdirP(tempDir);
-    downloadPath = await pipeline.downloadTool(downloadURL);
-    archivePath = await pipeline.extractZip(downloadPath, tempDir);
+    const downloadPath = await pipeline.downloadTool(downloadURL);
+    const archivePath = await pipeline.extractZip(downloadPath, tempDir);
     await this.moveToPath(archivePath, "winapp.exe", pipeline);
     return pipeline.rmRF(tempDir);
   }
