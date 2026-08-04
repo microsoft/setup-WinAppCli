@@ -10,7 +10,7 @@
     "version": {
         "Major": 0,
         "Minor": 2,
-        "Patch": 0
+        "Patch": 1
     },
     "instanceNameFormat": "Use Windows App Developer CLI $(version)",
     "minimumAgentVersion": "4.248.0",
