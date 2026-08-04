@@ -36,12 +36,24 @@
     "fs-extra": "^11.3.4"
   },
   "overrides": {
-    "azure-pipelines-task-lib": "^5.277.0"
+    "azure-pipelines-task-lib": "^5.277.0",
+    "minimatch@3": {
+      "brace-expansion": "^1.1.18"
+    },
+    "minimatch@9": {
+      "brace-expansion": "^2.1.4"
+    },
+    "minimatch@10": {
+      "brace-expansion": "^5.0.9"
+    },
+    "adm-zip": "0.6.0",
+    "@actions/http-client": {
+      "undici": "^6.28.0"
+    }
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
     "@babel/preset-env": "^7.29.7",
-    "@eslint/eslintrc": "^3.3.4",
     "@eslint/js": "^10.0.1",
     "@jest/globals": "^30.2.0",
     "@types/fs-extra": "^11.0.4",
