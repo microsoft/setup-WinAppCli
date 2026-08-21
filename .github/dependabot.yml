@@ -6,6 +6,12 @@ updates:
       interval: daily
     cooldown:
       default-days: 7
+    groups:
+      # The codeql-action sub-actions must always run at the same version;
+      # bumping them in separate PRs causes a CodeQL configuration error.
+      codeql-action:
+        patterns:
+          - github/codeql-action/*
 
   - package-ecosystem: npm
     directory: /
