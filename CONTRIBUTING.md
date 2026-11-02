@@ -20,6 +20,8 @@ base revision's `build.mjs` (the current revision outside pull requests), withou
 npm lifecycle scripts or package build scripts, and compares `dist/` and
 `setup-winappcli-task/` with the checked-in files. Both entrypoint bundles are
 removed before rebuilding so stale files cannot satisfy the check.
+The comparison also requires both bundles and the task's localized resources to
+be tracked, so rebuilding cannot hide deleted runtime files.
 
 Changes to the bundler may require a separate reviewed update before dependent
 source changes. This check is not an authenticity guarantee: maintainers must

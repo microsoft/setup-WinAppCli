@@ -56,6 +56,10 @@ jobs:
 
       - name: Compare the expected and actual distributables
         run: |
+          git ls-files --error-unmatch -- dist\index.js setup-winappcli-task\index.js setup-winappcli-task\lib.json setup-winappcli-task\lib2.json
+          if ($LASTEXITCODE -ne 0) {
+            throw "Required generated files must be tracked."
+          }
           git diff --exit-code --ignore-space-at-eol -- dist/ setup-winappcli-task/
           if ($LASTEXITCODE -ne 0) {
             echo "Detected uncommitted changes after build.  See status below:"
