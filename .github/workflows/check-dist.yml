@@ -5,6 +5,9 @@
 # We need to make sure the checked-in `index.js` actually matches what we expect it to be.
 name: Check dist/
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -22,6 +25,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out the trusted bundler
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: .trusted-build
+          sparse-checkout: build.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
 
       - name: Set Node.js 24.x
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -31,23 +45,20 @@ jobs:
       - name: Remove .npmrc to avoid using private registries
         run: rm .npmrc
 
-      - name: Install TFX
-        run: npm install -g tfx-cli
-
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
-      - name: Rebuild the dist/ directory
+      - name: Rebuild both distributables
         run: |
-          npm run build
-          npm run package
+          Copy-Item .trusted-build\build.mjs .trusted-build.mjs
+          Remove-Item dist\index.js, setup-winappcli-task\index.js
+          node .trusted-build.mjs
 
-      - name: Compare the expected and actual dist/ directories
+      - name: Compare the expected and actual distributables
         run: |
-          $diff = git diff --ignore-space-at-eol dist/
-          if ($diff) {
+          git diff --exit-code --ignore-space-at-eol -- dist/ setup-winappcli-task/
+          if ($LASTEXITCODE -ne 0) {
             echo "Detected uncommitted changes after build.  See status below:"
-            git diff
             exit 1
           }
         id: diff
@@ -57,4 +68,6 @@ jobs:
         if: ${{ failure() && steps.diff.conclusion == 'failure' }}
         with:
           name: dist
-          path: dist/
+          path: |
+            dist/
+            setup-winappcli-task/
