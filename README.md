@@ -54,6 +54,13 @@ By default, the digest comes from the official repository's GitHub release API.
 `latest` is resolved to a specific release tag before downloading. Missing or
 invalid metadata, API failures (including rate limits), and digest mismatches
 fail setup rather than installing unverified code.
+GitHub Actions uses `github-token` (default: `${{ github.token }}`) for these API
+requests to avoid the shared unauthenticated rate limit. Azure DevOps supports
+the same optional input; supply a secret pipeline variable if needed. The token
+is used only for the official release API, never for archive downloads.
+Azure DevOps metadata requests honor the agent's proxy/bypass and CA/client
+certificate settings. Metadata requests reject redirects and have a 30-second
+deadline, including reading the response body.
 The verified installation replaces an existing copy in the managed tool directory
 so setup never silently reuses an older, unverified executable.
 

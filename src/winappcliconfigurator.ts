@@ -13,6 +13,7 @@ export function getConfig(version: string, sha256 = ''): WinAppCLIConfigurator {
 }
 
 export interface IPipeline {
+  getRelease(url: string): Promise<unknown>
   debug(message: string): void
   addPath(p: string): void
   mkdirP(p: string): Promise<void>
@@ -20,6 +21,45 @@ export interface IPipeline {
   extractZip(archivePath: string, dest: string): Promise<string>
   rmRF(p: string): Promise<void>
   moveSync(downloadPath: string, toolPath: string): void
+}
+
+type ReleaseRequest = (
+  url: string,
+  options: {
+    headers: Record<string, string>
+    redirect: 'error'
+    signal: AbortSignal
+  }
+) => Promise<
+  Pick<Response, 'ok' | 'status' | 'text'> & {
+    headers: Pick<Headers, 'get'>
+  }
+>
+
+export async function fetchRelease(
+  url: string,
+  token = '',
+  request: ReleaseRequest = fetch
+): Promise<unknown> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'setup-WinAppCli',
+    'X-GitHub-Api-Version': '2022-11-28'
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const response = await request(url, {
+    headers,
+    redirect: 'error',
+    signal: AbortSignal.timeout(30000)
+  })
+  const body = await response.text()
+  if (!response.ok) {
+    const rateLimited = response.headers.get('x-ratelimit-remaining') === '0'
+    throw new Error(
+      `Unable to resolve WinAppCli release: GitHub API returned ${response.status}${rateLimited ? ' (API rate limit exceeded)' : ''}`
+    )
+  }
+  return JSON.parse(body)
 }
 
 export class WinAppCLIConfigurator {
@@ -36,7 +76,7 @@ export class WinAppCLIConfigurator {
     this.validate()
 
     const assetName = `winappcli-${process.arch}.zip`
-    const {version, digest} = await this.resolveRelease(assetName)
+    const {version, digest} = await this.resolveRelease(assetName, pipeline)
     const downloadURL = `https://github.com/microsoft/WinAppCli/releases/download/${version}/${assetName}`
 
     pipeline.debug(`Downloading tool from ${downloadURL}`)
@@ -66,7 +106,8 @@ export class WinAppCLIConfigurator {
   }
 
   private async resolveRelease(
-    assetName: string
+    assetName: string,
+    pipeline: IPipeline
   ): Promise<{version: string; digest: string}> {
     // A caller-pinned digest does not depend on mutable release metadata.
     if (this.sha256 && this.version !== 'latest') {
@@ -74,24 +115,9 @@ export class WinAppCLIConfigurator {
     }
     const releasePath =
       this.version === 'latest' ? 'latest' : `tags/${this.version}`
-    const response = await fetch(
-      `https://api.github.com/repos/microsoft/WinAppCli/releases/${releasePath}`,
-      {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'setup-WinAppCli',
-          'X-GitHub-Api-Version': '2022-11-28'
-        },
-        redirect: 'error',
-        signal: AbortSignal.timeout(30000)
-      }
+    const release = await pipeline.getRelease(
+      `https://api.github.com/repos/microsoft/WinAppCli/releases/${releasePath}`
     )
-    if (!response.ok) {
-      throw new Error(
-        `Unable to resolve WinAppCli release: GitHub API returned ${response.status}`
-      )
-    }
-    const release: unknown = await response.json()
     if (
       typeof release !== 'object' ||
       release === null ||

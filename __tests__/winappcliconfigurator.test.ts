@@ -5,6 +5,7 @@ import * as path from 'path'
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals'
 import {
   getConfig,
+  fetchRelease,
   IPipeline,
   WinAppCLIConfigurator
 } from '../src/winappcliconfigurator'
@@ -32,6 +33,9 @@ describe('verified release installation', () => {
       .update('test release contents')
       .digest('hex')
     pipeline = {
+      getRelease: jest
+        .fn<IPipeline['getRelease']>()
+        .mockImplementation(url => fetchRelease(url)),
       debug: jest.fn<IPipeline['debug']>(),
       addPath: jest.fn<IPipeline['addPath']>(),
       mkdirP: jest.fn<IPipeline['mkdirP']>().mockResolvedValue(),

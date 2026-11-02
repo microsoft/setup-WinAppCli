@@ -2,10 +2,51 @@ import * as taskLib from 'azure-pipelines-task-lib/task'
 import * as toolLib from 'azure-pipelines-tool-lib/tool'
 import * as winappcliconfigurator from './winappcliconfigurator'
 import * as fs from 'fs'
+import {Agent, EnvHttpProxyAgent, ProxyAgent, fetch} from 'undici'
+import type {ConnectionOptions} from 'tls'
 
 const Version = 'version'
 
 class AzurePipeline implements winappcliconfigurator.IPipeline {
+  async getRelease(url: string): Promise<unknown> {
+    const configuredProxy = taskLib.getHttpProxyConfiguration()
+    const proxy = taskLib.getHttpProxyConfiguration(url)
+    const cert = taskLib.getHttpCertConfiguration()
+    const tls: ConnectionOptions = {
+      ca: cert?.caFile ? fs.readFileSync(cert.caFile) : undefined,
+      cert: cert?.certFile ? fs.readFileSync(cert.certFile) : undefined,
+      key: cert?.keyFile ? fs.readFileSync(cert.keyFile) : undefined,
+      pfx: cert?.certArchiveFile
+        ? fs.readFileSync(cert.certArchiveFile)
+        : undefined,
+      passphrase: cert?.passphrase
+    }
+    const tlsOptions = {connect: tls, requestTls: tls, proxyTls: tls}
+    const dispatcher = proxy
+      ? new ProxyAgent({
+          uri: proxy.proxyUrl,
+          token:
+            proxy.proxyUsername || proxy.proxyPassword
+              ? `Basic ${Buffer.from(`${proxy.proxyUsername || ''}:${proxy.proxyPassword || ''}`).toString('base64')}`
+              : undefined,
+          requestTls: tls,
+          proxyTls: tls
+        })
+      : configuredProxy
+        ? new Agent({connect: tls})
+        : new EnvHttpProxyAgent(tlsOptions)
+    try {
+      const token = taskLib.getInput('github-token') || ''
+      if (token) taskLib.setSecret(token)
+      return await winappcliconfigurator.fetchRelease(
+        url,
+        token,
+        (url, options) => fetch(url, {...options, dispatcher})
+      )
+    } finally {
+      await dispatcher.close()
+    }
+  }
   debug(message: string): void {
     taskLib.debug(message)
   }

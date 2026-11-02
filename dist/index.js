@@ -8821,7 +8821,7 @@ var require_env_http_proxy_agent = __commonJS({
       "https:": 443
     };
     var experimentalWarned = false;
-    var EnvHttpProxyAgent = class extends DispatcherBase {
+    var EnvHttpProxyAgent2 = class extends DispatcherBase {
       #noProxyValue = null;
       #noProxyEntries = null;
       #opts = null;
@@ -8940,7 +8940,7 @@ var require_env_http_proxy_agent = __commonJS({
         return process.env.no_proxy ?? process.env.NO_PROXY ?? "";
       }
     };
-    module2.exports = EnvHttpProxyAgent;
+    module2.exports = EnvHttpProxyAgent2;
   }
 });
 
@@ -13472,7 +13472,7 @@ var require_fetch = __commonJS({
     function handleFetchDone(response) {
       finalizeAndReportTiming(response, "fetch");
     }
-    function fetch2(input, init = void 0) {
+    function fetch3(input, init = void 0) {
       webidl.argumentLengthCheck(arguments, 1, "globalThis.fetch");
       let p = createDeferredPromise();
       let requestObject;
@@ -14429,7 +14429,7 @@ var require_fetch = __commonJS({
       }
     }
     module2.exports = {
-      fetch: fetch2,
+      fetch: fetch3,
       Fetch,
       fetching,
       finalizeAndReportTiming
@@ -18695,7 +18695,7 @@ var require_undici = __commonJS({
     var BalancedPool = require_balanced_pool();
     var Agent3 = require_agent();
     var ProxyAgent2 = require_proxy_agent();
-    var EnvHttpProxyAgent = require_env_http_proxy_agent();
+    var EnvHttpProxyAgent2 = require_env_http_proxy_agent();
     var RetryAgent = require_retry_agent();
     var errors = require_errors();
     var util2 = require_util();
@@ -18718,7 +18718,7 @@ var require_undici = __commonJS({
     module2.exports.BalancedPool = BalancedPool;
     module2.exports.Agent = Agent3;
     module2.exports.ProxyAgent = ProxyAgent2;
-    module2.exports.EnvHttpProxyAgent = EnvHttpProxyAgent;
+    module2.exports.EnvHttpProxyAgent = EnvHttpProxyAgent2;
     module2.exports.RetryAgent = RetryAgent;
     module2.exports.RetryHandler = RetryHandler;
     module2.exports.DecoratorHandler = DecoratorHandler;
@@ -18778,7 +18778,7 @@ var require_undici = __commonJS({
     module2.exports.setGlobalDispatcher = setGlobalDispatcher;
     module2.exports.getGlobalDispatcher = getGlobalDispatcher;
     var fetchImpl = require_fetch().fetch;
-    module2.exports.fetch = async function fetch2(init, options = void 0) {
+    module2.exports.fetch = async function fetch3(init, options = void 0) {
       try {
         return await fetchImpl(init, options);
       } catch (err) {
@@ -24853,6 +24853,9 @@ var ExitCode;
   ExitCode2[ExitCode2["Success"] = 0] = "Success";
   ExitCode2[ExitCode2["Failure"] = 1] = "Failure";
 })(ExitCode || (ExitCode = {}));
+function setSecret(secret) {
+  issueCommand("add-mask", {}, secret);
+}
 function addPath(inputPath) {
   const filePath = process.env["GITHUB_PATH"] || "";
   if (filePath) {
@@ -25175,6 +25178,27 @@ var sha256Digest = /^[a-fA-F0-9]{64}(?![\s\S])/;
 function getConfig(version, sha256 = "") {
   return new WinAppCLIConfigurator(version || "latest", sha256);
 }
+async function fetchRelease(url, token = "", request = fetch) {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "setup-WinAppCli",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await request(url, {
+    headers,
+    redirect: "error",
+    signal: AbortSignal.timeout(3e4)
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    const rateLimited = response.headers.get("x-ratelimit-remaining") === "0";
+    throw new Error(
+      `Unable to resolve WinAppCli release: GitHub API returned ${response.status}${rateLimited ? " (API rate limit exceeded)" : ""}`
+    );
+  }
+  return JSON.parse(body);
+}
 var WinAppCLIConfigurator = class {
   constructor(version, sha256 = "") {
     this.sha256 = sha256;
@@ -25183,7 +25207,7 @@ var WinAppCLIConfigurator = class {
   async configure(pipeline2) {
     this.validate();
     const assetName = `winappcli-${process.arch}.zip`;
-    const { version, digest } = await this.resolveRelease(assetName);
+    const { version, digest } = await this.resolveRelease(assetName, pipeline2);
     const downloadURL = `https://github.com/microsoft/WinAppCli/releases/download/${version}/${assetName}`;
     pipeline2.debug(`Downloading tool from ${downloadURL}`);
     const randomDir = crypto2.randomUUID();
@@ -25210,29 +25234,14 @@ var WinAppCLIConfigurator = class {
       }
     }
   }
-  async resolveRelease(assetName) {
+  async resolveRelease(assetName, pipeline2) {
     if (this.sha256 && this.version !== "latest") {
       return { version: this.version, digest: this.sha256.toLowerCase() };
     }
     const releasePath = this.version === "latest" ? "latest" : `tags/${this.version}`;
-    const response = await fetch(
-      `https://api.github.com/repos/microsoft/WinAppCli/releases/${releasePath}`,
-      {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": "setup-WinAppCli",
-          "X-GitHub-Api-Version": "2022-11-28"
-        },
-        redirect: "error",
-        signal: AbortSignal.timeout(3e4)
-      }
+    const release = await pipeline2.getRelease(
+      `https://api.github.com/repos/microsoft/WinAppCli/releases/${releasePath}`
     );
-    if (!response.ok) {
-      throw new Error(
-        `Unable to resolve WinAppCli release: GitHub API returned ${response.status}`
-      );
-    }
-    const release = await response.json();
     if (typeof release !== "object" || release === null || !("tag_name" in release) || typeof release.tag_name !== "string" || !releaseVersion.test(release.tag_name) || this.version !== "latest" && release.tag_name !== this.version || !("assets" in release) || !Array.isArray(release.assets)) {
       throw new Error("Invalid WinAppCli release metadata");
     }
@@ -25279,8 +25288,23 @@ function binPath() {
 
 // src/main.ts
 var fs5 = __toESM(require_lib());
+var import_undici2 = __toESM(require_undici());
 var Version = "version";
 var GitHubPipeline = class {
+  async getRelease(url) {
+    const token = getInput("github-token");
+    if (token) setSecret(token);
+    const dispatcher = new import_undici2.EnvHttpProxyAgent();
+    try {
+      return await fetchRelease(
+        url,
+        token,
+        (url2, options) => (0, import_undici2.fetch)(url2, { ...options, dispatcher })
+      );
+    } finally {
+      await dispatcher.close();
+    }
+  }
   debug(message) {
     debug(message);
   }
@@ -25307,7 +25331,7 @@ async function run() {
   try {
     await getConfig(
       getInput(Version, { trimWhitespace: false }),
-      getInput("sha256")
+      getInput("sha256", { trimWhitespace: false })
     ).configure(new GitHubPipeline());
   } catch (error2) {
     if (error2 instanceof Error) setFailed(error2.message);

@@ -30,6 +30,14 @@
             "defaultValue": "",
             "required": false,
             "helpMarkDown": "Expected SHA-256 of the architecture-specific release ZIP. Defaults to the digest from GitHub release metadata."
+        },
+        {
+            "name": "github-token",
+            "type": "string",
+            "label": "GitHub API token",
+            "defaultValue": "",
+            "required": false,
+            "helpMarkDown": "Optional GitHub token for release metadata requests to avoid unauthenticated rate limits. Pass a secret pipeline variable. Not sent to release downloads."
         }
     ],
     "execution": {
