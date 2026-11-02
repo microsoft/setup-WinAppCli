@@ -7,7 +7,7 @@ branding:
 inputs:
   version:
     required: false
-    description: "The version of the Windows App Developer CLI to be downloaded and configured (e.g. 'v0.1.0')."
+    description: "Release version: 'latest' or 'vMAJOR.MINOR.PATCH', optionally with a prerelease suffix (e.g. 'v0.2.0-preview.1')."
     default: 'latest'
 runs:
   using: 'node24'

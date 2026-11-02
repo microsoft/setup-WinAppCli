@@ -11981,6 +11981,7 @@ var path = __toESM(require("path"));
 var os = __toESM(require("os"));
 var crypto = __toESM(require("crypto"));
 var fs = __toESM(require("fs"));
+var releaseVersion = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?![\s\S])/;
 function getConfig(version) {
   return new WinAppCLIConfigurator(version || "latest");
 }
@@ -12019,6 +12020,14 @@ var WinAppCLIConfigurator = class {
   validate() {
     if (process.platform !== "win32") {
       throw new Error(`Unsupported platform: ${process.platform}`);
+    }
+    if (this.version !== "latest" && !releaseVersion.test(this.version)) {
+      throw new Error(
+        "Invalid version: expected latest or a release tag such as v0.1.0"
+      );
+    }
+    if (process.arch !== "x64" && process.arch !== "arm64") {
+      throw new Error(`Unsupported architecture: ${process.arch}`);
     }
   }
 };

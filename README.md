@@ -36,3 +36,13 @@ steps:
 - task: UseWinAppCLI@0
 - script: winapp restore
 ```
+
+## Version input
+
+For both GitHub Actions (`with.version`) and Azure DevOps (`inputs.version`),
+`version` accepts `latest` (the default) or a release tag in the form
+`vMAJOR.MINOR.PATCH`, optionally followed by a prerelease suffix such as
+`v0.2.0-preview.1` or `v0.2.0-rc-1`. Prerelease components contain ASCII letters
+and digits separated by dots or hyphens. Paths, URLs, query strings, fragments,
+whitespace, and trailing newlines are rejected before downloading.
+Only Windows x64 and arm64 are supported.
