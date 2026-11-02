@@ -25253,7 +25253,7 @@ var GitHubPipeline = class {
 };
 async function run() {
   try {
-    await getConfig(getInput(Version)).configure(new GitHubPipeline());
+    await getConfig(getInput(Version, { trimWhitespace: false })).configure(new GitHubPipeline());
   } catch (error2) {
     if (error2 instanceof Error) setFailed(error2.message);
   }
