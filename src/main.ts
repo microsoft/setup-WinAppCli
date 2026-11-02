@@ -13,7 +13,12 @@ class GitHubPipeline implements winappcliconfigurator.IPipeline {
     const token = core.getInput('github-token')
     if (token) core.setSecret(token)
     const proxyUrl = getProxyUrl(url)
-    const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : new Agent()
+    const dispatcher = proxyUrl
+      ? new ProxyAgent({
+          uri: proxyUrl,
+          token: winappcliconfigurator.proxyAuthorization(proxyUrl)
+        })
+      : new Agent()
     try {
       return await winappcliconfigurator.fetchRelease(
         url,
@@ -21,7 +26,7 @@ class GitHubPipeline implements winappcliconfigurator.IPipeline {
         (url, options) => fetch(url, {...options, dispatcher})
       )
     } finally {
-      await dispatcher.close()
+      await dispatcher.destroy()
     }
   }
   debug(message: string): void {

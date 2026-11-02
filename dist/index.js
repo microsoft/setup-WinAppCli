@@ -25203,6 +25203,12 @@ async function fetchRelease(url, token = "", request = fetch) {
   }
   return JSON.parse(body);
 }
+function proxyAuthorization(proxyUrl, username, password) {
+  const parsed = new URL(proxyUrl);
+  const user = username ?? decodeURIComponent(parsed.username);
+  const pass = password ?? decodeURIComponent(parsed.password);
+  return user || pass ? `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}` : void 0;
+}
 var WinAppCLIConfigurator = class {
   constructor(version, sha256 = "") {
     this.sha256 = sha256;
@@ -25299,7 +25305,10 @@ var GitHubPipeline = class {
     const token = getInput("github-token");
     if (token) setSecret(token);
     const proxyUrl = getProxyUrl2(url);
-    const dispatcher = proxyUrl ? new import_undici2.ProxyAgent(proxyUrl) : new import_undici2.Agent();
+    const dispatcher = proxyUrl ? new import_undici2.ProxyAgent({
+      uri: proxyUrl,
+      token: proxyAuthorization(proxyUrl)
+    }) : new import_undici2.Agent();
     try {
       return await fetchRelease(
         url,
@@ -25307,7 +25316,7 @@ var GitHubPipeline = class {
         (url2, options) => (0, import_undici2.fetch)(url2, { ...options, dispatcher })
       );
     } finally {
-      await dispatcher.close();
+      await dispatcher.destroy();
     }
   }
   debug(message) {

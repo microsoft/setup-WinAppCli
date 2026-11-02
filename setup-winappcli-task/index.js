@@ -30568,6 +30568,12 @@ async function fetchRelease(url, token = "", request = fetch) {
   }
   return JSON.parse(body);
 }
+function proxyAuthorization(proxyUrl, username, password) {
+  const parsed = new URL(proxyUrl);
+  const user = username ?? decodeURIComponent(parsed.username);
+  const pass = password ?? decodeURIComponent(parsed.password);
+  return user || pass ? `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}` : void 0;
+}
 var WinAppCLIConfigurator = class {
   constructor(version, sha256 = "") {
     this.sha256 = sha256;
@@ -30678,7 +30684,11 @@ var AzurePipeline = class {
     const proxyUrl = configuredProxy ? proxy?.proxyUrl : bypassEnvironmentProxy ? void 0 : process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
     const dispatcher = proxyUrl ? new import_undici.ProxyAgent({
       uri: proxyUrl,
-      token: proxy?.proxyUsername || proxy?.proxyPassword ? `Basic ${Buffer.from(`${proxy.proxyUsername || ""}:${proxy.proxyPassword || ""}`).toString("base64")}` : void 0,
+      token: proxyAuthorization(
+        proxyUrl,
+        proxy?.proxyUsername,
+        proxy?.proxyPassword
+      ),
       requestTls: tls,
       proxyTls: tls
     }) : new import_undici.Agent({ connect: tls });
@@ -30691,7 +30701,7 @@ var AzurePipeline = class {
         (url2, options) => (0, import_undici.fetch)(url2, { ...options, dispatcher })
       );
     } finally {
-      await dispatcher.close();
+      await dispatcher.destroy();
     }
   }
   debug(message) {

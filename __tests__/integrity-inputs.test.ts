@@ -7,6 +7,8 @@ import type {
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import * as http from 'http'
+import type {Socket} from 'net'
 
 describe.each(['GitHub Actions', 'Azure DevOps'])(
   '%s integrity inputs',
@@ -22,10 +24,10 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
     let setSecret: jest.Mock
     type MetadataFetch = (
       url: string,
-      options: RequestInit & {dispatcher: {close(): Promise<void>}}
+      options: RequestInit & {dispatcher: {destroy(): Promise<void>}}
     ) => Promise<Response>
     let fetchMock: jest.Mock<MetadataFetch>
-    let close: jest.Mock<() => Promise<void>>
+    let destroy: jest.Mock<() => Promise<void>>
     let proxyAgent: jest.Mock
     let directAgent: jest.Mock
     let getProxy: jest.Mock<(url?: string) => ProxyConfiguration | null>
@@ -60,9 +62,9 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
       setFailed = jest.fn()
       setResult = jest.fn()
       setSecret = jest.fn()
-      close = jest.fn<() => Promise<void>>().mockResolvedValue()
-      proxyAgent = jest.fn().mockImplementation(() => ({close}))
-      directAgent = jest.fn().mockImplementation(() => ({close}))
+      destroy = jest.fn<() => Promise<void>>().mockResolvedValue()
+      proxyAgent = jest.fn().mockImplementation(() => ({destroy}))
+      directAgent = jest.fn().mockImplementation(() => ({destroy}))
       fetchMock = jest
         .fn<MetadataFetch>()
         .mockResolvedValue(
@@ -174,9 +176,9 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
         },
         redirect: 'error',
         signal: expect.any(AbortSignal),
-        dispatcher: {close}
+        dispatcher: {destroy}
       })
-      expect(close).toHaveBeenCalledTimes(1)
+      expect(destroy).toHaveBeenCalledTimes(1)
     })
 
     it('allows an omitted API token without sending an Authorization header', async () => {
@@ -189,12 +191,12 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
     })
 
     it.each([new Error('network failure'), new TypeError('redirect rejected')])(
-      'closes the transport when the request fails: %s',
+      'destroys the transport when the request fails: %s',
       async error => {
         const pipeline = await getPipeline()
         fetchMock.mockRejectedValue(error)
         await expect(pipeline.getRelease(url)).rejects.toThrow(error)
-        expect(close).toHaveBeenCalledTimes(1)
+        expect(destroy).toHaveBeenCalledTimes(1)
       }
     )
 
@@ -209,14 +211,14 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
         'GitHub API returned 403 (API rate limit exceeded)'
       )
       expect(response.bodyUsed).toBe(true)
-      expect(close).toHaveBeenCalledTimes(1)
+      expect(destroy).toHaveBeenCalledTimes(1)
     })
 
-    it('closes the transport when JSON is malformed', async () => {
+    it('destroys the transport when JSON is malformed', async () => {
       const pipeline = await getPipeline()
       fetchMock.mockResolvedValue(new Response('{invalid'))
       await expect(pipeline.getRelease(url)).rejects.toThrow(SyntaxError)
-      expect(close).toHaveBeenCalledTimes(1)
+      expect(destroy).toHaveBeenCalledTimes(1)
     })
 
     it('uses a direct transport when no proxy is configured', async () => {
@@ -252,6 +254,99 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
         )
       }
     )
+
+    async function withLocalProxy(
+      run: (proxyUrl: string, server: http.Server) => Promise<void>
+    ): Promise<void> {
+      const undici = jest.requireActual<typeof import('undici')>('undici')
+      jest.doMock('undici', () => undici)
+      const server = http.createServer()
+      const sockets = new Set<Socket>()
+      server.on('connection', socket => {
+        sockets.add(socket)
+        socket.once('close', () => sockets.delete(socket))
+      })
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject)
+        server.listen(0, '127.0.0.1', resolve)
+      })
+      try {
+        const address = server.address()
+        if (!address || typeof address === 'string') {
+          throw new Error('Expected a local TCP proxy address')
+        }
+        const proxyUrl = `http://127.0.0.1:${address.port}`
+        process.env.HTTPS_PROXY = proxyUrl
+        await run(proxyUrl, server)
+      } finally {
+        for (const socket of sockets) socket.destroy()
+        await new Promise<void>(resolve => server.close(() => resolve()))
+      }
+    }
+
+    it.each([
+      {username: 'proxy-user', password: ''},
+      {username: '', password: 'proxy-password'},
+      {username: 'proxy-user', password: 'proxy-password'},
+      {username: 'proxy user', password: 'p@ss:word'}
+    ])(
+      'sends proxy Basic auth with username $username and password $password',
+      async ({username, password}) => {
+        await withLocalProxy(async (proxyUrl, server) => {
+          const proxy = new URL(proxyUrl)
+          proxy.username = username
+          proxy.password = password
+          process.env.HTTPS_PROXY = proxy.href
+          let authorization: string | undefined
+          server.on('connect', (request, socket) => {
+            authorization = request.headers['proxy-authorization']
+            socket.end(
+              'HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\n\r\n'
+            )
+          })
+          const pipeline = await getPipeline()
+          await expect(pipeline.getRelease(url)).rejects.toThrow()
+          expect(authorization).toBe(
+            `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+          )
+        })
+      }
+    )
+
+    it('cancels a stalled CONNECT promptly when the metadata deadline expires', async () => {
+      await withLocalProxy(async (_proxyUrl, server) => {
+        let connected: () => void = () => {}
+        const connection = new Promise<void>(resolve => {
+          connected = resolve
+        })
+        server.on('connect', connected)
+        const controller = new AbortController()
+        const timeout = jest
+          .spyOn(AbortSignal, 'timeout')
+          .mockReturnValue(controller.signal)
+        const pipeline = await getPipeline()
+        let watchdog: ReturnType<typeof setTimeout> | undefined
+        const deadline = new Promise<never>((_resolve, reject) => {
+          watchdog = setTimeout(
+            () => reject(new Error('Stalled proxy exceeded cleanup deadline')),
+            3000
+          )
+        })
+        try {
+          const request = pipeline.getRelease(url)
+          await Promise.race([connection, deadline])
+          const started = Date.now()
+          controller.abort(new Error('metadata deadline expired'))
+          await expect(Promise.race([request, deadline])).rejects.toThrow(
+            'metadata deadline expired'
+          )
+          expect(timeout).toHaveBeenCalledWith(30000)
+          expect(Date.now() - started).toBeLessThan(1000)
+        } finally {
+          clearTimeout(watchdog)
+        }
+      })
+    })
 
     if (integration === 'Azure DevOps') {
       it('does not reapply environment proxies when the agent bypasses this URL', async () => {

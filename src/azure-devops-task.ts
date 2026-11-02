@@ -36,10 +36,11 @@ class AzurePipeline implements winappcliconfigurator.IPipeline {
     const dispatcher = proxyUrl
       ? new ProxyAgent({
           uri: proxyUrl,
-          token:
-            proxy?.proxyUsername || proxy?.proxyPassword
-              ? `Basic ${Buffer.from(`${proxy.proxyUsername || ''}:${proxy.proxyPassword || ''}`).toString('base64')}`
-              : undefined,
+          token: winappcliconfigurator.proxyAuthorization(
+            proxyUrl,
+            proxy?.proxyUsername,
+            proxy?.proxyPassword
+          ),
           requestTls: tls,
           proxyTls: tls
         })
@@ -53,7 +54,7 @@ class AzurePipeline implements winappcliconfigurator.IPipeline {
         (url, options) => fetch(url, {...options, dispatcher})
       )
     } finally {
-      await dispatcher.close()
+      await dispatcher.destroy()
     }
   }
   debug(message: string): void {

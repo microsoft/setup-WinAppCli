@@ -62,6 +62,19 @@ export async function fetchRelease(
   return JSON.parse(body)
 }
 
+export function proxyAuthorization(
+  proxyUrl: string,
+  username?: string,
+  password?: string
+): string | undefined {
+  const parsed = new URL(proxyUrl)
+  const user = username ?? decodeURIComponent(parsed.username)
+  const pass = password ?? decodeURIComponent(parsed.password)
+  return user || pass
+    ? `Basic ${Buffer.from(`${user}:${pass}`).toString('base64')}`
+    : undefined
+}
+
 export class WinAppCLIConfigurator {
   version: string
 
