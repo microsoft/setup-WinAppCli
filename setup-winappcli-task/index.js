@@ -11981,44 +11981,105 @@ var path = __toESM(require("path"));
 var os = __toESM(require("os"));
 var crypto = __toESM(require("crypto"));
 var fs = __toESM(require("fs"));
-function getConfig(version) {
-  return new WinAppCLIConfigurator(version || "latest");
+var releaseVersion = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?![\s\S])/;
+var sha256Digest = /^[a-fA-F0-9]{64}(?![\s\S])/;
+function getConfig(version, sha256 = "") {
+  return new WinAppCLIConfigurator(version || "latest", sha256);
 }
 var WinAppCLIConfigurator = class {
-  constructor(version) {
+  constructor(version, sha256 = "") {
+    this.sha256 = sha256;
     this.version = version;
   }
   async configure(pipeline) {
     this.validate();
-    let versionString;
-    if (this.version === "latest") {
-      versionString = `latest/download`;
-    } else {
-      versionString = `download/${this.version}`;
-    }
-    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${process.arch}.zip`;
+    const assetName = `winappcli-${process.arch}.zip`;
+    const { version, digest } = await this.resolveRelease(assetName);
+    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/download/${version}/${assetName}`;
     pipeline.debug(`Downloading tool from ${downloadURL}`);
     const randomDir = crypto.randomUUID();
     const tempDir = path.join(os.tmpdir(), "tmp", "runner", randomDir);
     pipeline.debug(`Creating tempdir ${tempDir}`);
     await pipeline.mkdirP(tempDir);
-    const downloadPath = await pipeline.downloadTool(downloadURL);
-    const archivePath = await pipeline.extractZip(downloadPath, tempDir);
-    await this.moveToPath(archivePath, "winapp.exe", pipeline);
-    return pipeline.rmRF(tempDir);
+    let downloadPath;
+    try {
+      downloadPath = await pipeline.downloadTool(downloadURL);
+      const hash = crypto.createHash("sha256");
+      for await (const chunk of fs.createReadStream(downloadPath)) {
+        hash.update(chunk);
+      }
+      if (hash.digest("hex") !== digest) {
+        throw new Error(`SHA-256 verification failed for ${assetName}`);
+      }
+      const archivePath = await pipeline.extractZip(downloadPath, tempDir);
+      await this.moveToPath(archivePath, pipeline);
+    } finally {
+      try {
+        if (downloadPath) await pipeline.rmRF(downloadPath);
+      } finally {
+        await pipeline.rmRF(tempDir);
+      }
+    }
   }
-  async moveToPath(downloadPath, name, pipeline) {
+  async resolveRelease(assetName) {
+    if (this.sha256 && this.version !== "latest") {
+      return { version: this.version, digest: this.sha256.toLowerCase() };
+    }
+    const releasePath = this.version === "latest" ? "latest" : `tags/${this.version}`;
+    const response = await fetch(
+      `https://api.github.com/repos/microsoft/WinAppCli/releases/${releasePath}`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "setup-WinAppCli",
+          "X-GitHub-Api-Version": "2022-11-28"
+        },
+        redirect: "error",
+        signal: AbortSignal.timeout(3e4)
+      }
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Unable to resolve WinAppCli release: GitHub API returned ${response.status}`
+      );
+    }
+    const release = await response.json();
+    if (typeof release !== "object" || release === null || !("tag_name" in release) || typeof release.tag_name !== "string" || !releaseVersion.test(release.tag_name) || this.version !== "latest" && release.tag_name !== this.version || !("assets" in release) || !Array.isArray(release.assets)) {
+      throw new Error("Invalid WinAppCli release metadata");
+    }
+    const assets = release.assets;
+    const asset = assets.find(
+      (asset2) => typeof asset2 === "object" && asset2 !== null && "name" in asset2 && asset2.name === assetName
+    );
+    if (typeof asset !== "object" || asset === null || !("digest" in asset) || typeof asset.digest !== "string" || !asset.digest.startsWith("sha256:") || !sha256Digest.test(asset.digest.slice("sha256:".length))) {
+      throw new Error(`Missing SHA-256 release digest for ${assetName}`);
+    }
+    const digest = asset.digest.slice("sha256:".length).toLowerCase();
+    if (this.sha256 && this.sha256.toLowerCase() !== digest) {
+      throw new Error("Pinned SHA-256 does not match the release asset digest");
+    }
+    return { version: release.tag_name, digest };
+  }
+  async moveToPath(downloadPath, pipeline) {
     const toolPath = binPath();
     await pipeline.mkdirP(toolPath);
-    const dest = path.join(toolPath, name);
-    if (!fs.existsSync(dest)) {
-      pipeline.moveSync(downloadPath, toolPath);
-    }
+    pipeline.moveSync(downloadPath, toolPath);
     pipeline.addPath(toolPath);
   }
   validate() {
     if (process.platform !== "win32") {
       throw new Error(`Unsupported platform: ${process.platform}`);
+    }
+    if (this.version !== "latest" && !releaseVersion.test(this.version)) {
+      throw new Error(
+        "Invalid version: expected latest or a release tag such as v0.1.0"
+      );
+    }
+    if (this.sha256 && !sha256Digest.test(this.sha256)) {
+      throw new Error("Invalid sha256: expected 64 hexadecimal characters");
+    }
+    if (process.arch !== "x64" && process.arch !== "arm64") {
+      throw new Error(`Unsupported architecture: ${process.arch}`);
     }
   }
 };
@@ -12056,7 +12117,10 @@ var AzurePipeline = class {
 };
 async function run() {
   try {
-    await getConfig(taskLib.getInput(Version) || "latest").configure(new AzurePipeline());
+    await getConfig(
+      taskLib.getInput(Version) || "latest",
+      taskLib.getInput("sha256") || ""
+    ).configure(new AzurePipeline());
   } catch (err) {
     if (err instanceof Error)
       taskLib.setResult(taskLib.TaskResult.Failed, err.message);

@@ -13472,7 +13472,7 @@ var require_fetch = __commonJS({
     function handleFetchDone(response) {
       finalizeAndReportTiming(response, "fetch");
     }
-    function fetch(input, init = void 0) {
+    function fetch2(input, init = void 0) {
       webidl.argumentLengthCheck(arguments, 1, "globalThis.fetch");
       let p = createDeferredPromise();
       let requestObject;
@@ -14429,7 +14429,7 @@ var require_fetch = __commonJS({
       }
     }
     module2.exports = {
-      fetch,
+      fetch: fetch2,
       Fetch,
       fetching,
       finalizeAndReportTiming
@@ -18778,7 +18778,7 @@ var require_undici = __commonJS({
     module2.exports.setGlobalDispatcher = setGlobalDispatcher;
     module2.exports.getGlobalDispatcher = getGlobalDispatcher;
     var fetchImpl = require_fetch().fetch;
-    module2.exports.fetch = async function fetch(init, options = void 0) {
+    module2.exports.fetch = async function fetch2(init, options = void 0) {
       try {
         return await fetchImpl(init, options);
       } catch (err) {
@@ -21338,7 +21338,7 @@ var require_graceful_fs = __commonJS({
     function patch(fs7) {
       polyfills(fs7);
       fs7.gracefulify = patch;
-      fs7.createReadStream = createReadStream;
+      fs7.createReadStream = createReadStream2;
       fs7.createWriteStream = createWriteStream2;
       var fs$readFile = fs7.readFile;
       fs7.readFile = readFile;
@@ -21548,7 +21548,7 @@ var require_graceful_fs = __commonJS({
           }
         });
       }
-      function createReadStream(path7, options) {
+      function createReadStream2(path7, options) {
         return new fs7.ReadStream(path7, options);
       }
       function createWriteStream2(path7, options) {
@@ -25170,44 +25170,105 @@ var path6 = __toESM(require("path"));
 var os6 = __toESM(require("os"));
 var crypto2 = __toESM(require("crypto"));
 var fs4 = __toESM(require("fs"));
-function getConfig(version) {
-  return new WinAppCLIConfigurator(version || "latest");
+var releaseVersion = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?![\s\S])/;
+var sha256Digest = /^[a-fA-F0-9]{64}(?![\s\S])/;
+function getConfig(version, sha256 = "") {
+  return new WinAppCLIConfigurator(version || "latest", sha256);
 }
 var WinAppCLIConfigurator = class {
-  constructor(version) {
+  constructor(version, sha256 = "") {
+    this.sha256 = sha256;
     this.version = version;
   }
   async configure(pipeline2) {
     this.validate();
-    let versionString;
-    if (this.version === "latest") {
-      versionString = `latest/download`;
-    } else {
-      versionString = `download/${this.version}`;
-    }
-    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${process.arch}.zip`;
+    const assetName = `winappcli-${process.arch}.zip`;
+    const { version, digest } = await this.resolveRelease(assetName);
+    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/download/${version}/${assetName}`;
     pipeline2.debug(`Downloading tool from ${downloadURL}`);
     const randomDir = crypto2.randomUUID();
     const tempDir = path6.join(os6.tmpdir(), "tmp", "runner", randomDir);
     pipeline2.debug(`Creating tempdir ${tempDir}`);
     await pipeline2.mkdirP(tempDir);
-    const downloadPath = await pipeline2.downloadTool(downloadURL);
-    const archivePath = await pipeline2.extractZip(downloadPath, tempDir);
-    await this.moveToPath(archivePath, "winapp.exe", pipeline2);
-    return pipeline2.rmRF(tempDir);
+    let downloadPath;
+    try {
+      downloadPath = await pipeline2.downloadTool(downloadURL);
+      const hash = crypto2.createHash("sha256");
+      for await (const chunk of fs4.createReadStream(downloadPath)) {
+        hash.update(chunk);
+      }
+      if (hash.digest("hex") !== digest) {
+        throw new Error(`SHA-256 verification failed for ${assetName}`);
+      }
+      const archivePath = await pipeline2.extractZip(downloadPath, tempDir);
+      await this.moveToPath(archivePath, pipeline2);
+    } finally {
+      try {
+        if (downloadPath) await pipeline2.rmRF(downloadPath);
+      } finally {
+        await pipeline2.rmRF(tempDir);
+      }
+    }
   }
-  async moveToPath(downloadPath, name, pipeline2) {
+  async resolveRelease(assetName) {
+    if (this.sha256 && this.version !== "latest") {
+      return { version: this.version, digest: this.sha256.toLowerCase() };
+    }
+    const releasePath = this.version === "latest" ? "latest" : `tags/${this.version}`;
+    const response = await fetch(
+      `https://api.github.com/repos/microsoft/WinAppCli/releases/${releasePath}`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "setup-WinAppCli",
+          "X-GitHub-Api-Version": "2022-11-28"
+        },
+        redirect: "error",
+        signal: AbortSignal.timeout(3e4)
+      }
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Unable to resolve WinAppCli release: GitHub API returned ${response.status}`
+      );
+    }
+    const release = await response.json();
+    if (typeof release !== "object" || release === null || !("tag_name" in release) || typeof release.tag_name !== "string" || !releaseVersion.test(release.tag_name) || this.version !== "latest" && release.tag_name !== this.version || !("assets" in release) || !Array.isArray(release.assets)) {
+      throw new Error("Invalid WinAppCli release metadata");
+    }
+    const assets = release.assets;
+    const asset = assets.find(
+      (asset2) => typeof asset2 === "object" && asset2 !== null && "name" in asset2 && asset2.name === assetName
+    );
+    if (typeof asset !== "object" || asset === null || !("digest" in asset) || typeof asset.digest !== "string" || !asset.digest.startsWith("sha256:") || !sha256Digest.test(asset.digest.slice("sha256:".length))) {
+      throw new Error(`Missing SHA-256 release digest for ${assetName}`);
+    }
+    const digest = asset.digest.slice("sha256:".length).toLowerCase();
+    if (this.sha256 && this.sha256.toLowerCase() !== digest) {
+      throw new Error("Pinned SHA-256 does not match the release asset digest");
+    }
+    return { version: release.tag_name, digest };
+  }
+  async moveToPath(downloadPath, pipeline2) {
     const toolPath = binPath();
     await pipeline2.mkdirP(toolPath);
-    const dest = path6.join(toolPath, name);
-    if (!fs4.existsSync(dest)) {
-      pipeline2.moveSync(downloadPath, toolPath);
-    }
+    pipeline2.moveSync(downloadPath, toolPath);
     pipeline2.addPath(toolPath);
   }
   validate() {
     if (process.platform !== "win32") {
       throw new Error(`Unsupported platform: ${process.platform}`);
+    }
+    if (this.version !== "latest" && !releaseVersion.test(this.version)) {
+      throw new Error(
+        "Invalid version: expected latest or a release tag such as v0.1.0"
+      );
+    }
+    if (this.sha256 && !sha256Digest.test(this.sha256)) {
+      throw new Error("Invalid sha256: expected 64 hexadecimal characters");
+    }
+    if (process.arch !== "x64" && process.arch !== "arm64") {
+      throw new Error(`Unsupported architecture: ${process.arch}`);
     }
   }
 };
@@ -25244,7 +25305,7 @@ var GitHubPipeline = class {
 };
 async function run() {
   try {
-    await getConfig(getInput(Version)).configure(new GitHubPipeline());
+    await getConfig(getInput(Version), getInput("sha256")).configure(new GitHubPipeline());
   } catch (error2) {
     if (error2 instanceof Error) setFailed(error2.message);
   }

@@ -33,7 +33,7 @@ class GitHubPipeline implements winappcliconfigurator.IPipeline {
 export async function run(): Promise<void> {
   try {
     await winappcliconfigurator
-      .getConfig(core.getInput(Version))
+      .getConfig(core.getInput(Version), core.getInput('sha256'))
       .configure(new GitHubPipeline())
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
