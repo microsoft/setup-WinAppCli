@@ -3848,22 +3848,22 @@ var require_q = __commonJS({
         return this.dispatch("keys", []);
       };
       Q.all = all;
-      function all(promises) {
-        return when(promises, function(promises2) {
+      function all(promises2) {
+        return when(promises2, function(promises3) {
           var pendingCount = 0;
           var deferred = defer();
-          array_reduce(promises2, function(undefined2, promise2, index) {
+          array_reduce(promises3, function(undefined2, promise2, index) {
             var snapshot;
             if (isPromise(promise2) && (snapshot = promise2.inspect()).state === "fulfilled") {
-              promises2[index] = snapshot.value;
+              promises3[index] = snapshot.value;
             } else {
               ++pendingCount;
               when(
                 promise2,
                 function(value) {
-                  promises2[index] = value;
+                  promises3[index] = value;
                   if (--pendingCount === 0) {
-                    deferred.resolve(promises2);
+                    deferred.resolve(promises3);
                   }
                 },
                 deferred.reject,
@@ -3874,7 +3874,7 @@ var require_q = __commonJS({
             }
           }, void 0);
           if (pendingCount === 0) {
-            deferred.resolve(promises2);
+            deferred.resolve(promises3);
           }
           return deferred.promise;
         });
@@ -3883,14 +3883,14 @@ var require_q = __commonJS({
         return all(this);
       };
       Q.any = any;
-      function any(promises) {
-        if (promises.length === 0) {
+      function any(promises2) {
+        if (promises2.length === 0) {
           return Q.resolve();
         }
         var deferred = Q.defer();
         var pendingCount = 0;
-        array_reduce(promises, function(prev, current, index) {
-          var promise2 = promises[index];
+        array_reduce(promises2, function(prev, current, index) {
+          var promise2 = promises2[index];
           pendingCount++;
           when(promise2, onFulfilled, onRejected, onProgress);
           function onFulfilled(result) {
@@ -3917,13 +3917,13 @@ var require_q = __commonJS({
         return any(this);
       };
       Q.allResolved = deprecate(allResolved, "allResolved", "allSettled");
-      function allResolved(promises) {
-        return when(promises, function(promises2) {
-          promises2 = array_map(promises2, Q);
-          return when(all(array_map(promises2, function(promise2) {
+      function allResolved(promises2) {
+        return when(promises2, function(promises3) {
+          promises3 = array_map(promises3, Q);
+          return when(all(array_map(promises3, function(promise2) {
             return when(promise2, noop, noop);
           })), function() {
-            return promises2;
+            return promises3;
           });
         });
       }
@@ -3931,12 +3931,12 @@ var require_q = __commonJS({
         return allResolved(this);
       };
       Q.allSettled = allSettled;
-      function allSettled(promises) {
-        return Q(promises).allSettled();
+      function allSettled(promises2) {
+        return Q(promises2).allSettled();
       }
       Promise2.prototype.allSettled = function() {
-        return this.then(function(promises) {
-          return all(array_map(promises, function(promise2) {
+        return this.then(function(promises2) {
+          return all(array_map(promises2, function(promise2) {
             promise2 = Q(promise2);
             function regardless() {
               return promise2.inspect();
@@ -6247,7 +6247,7 @@ var require_task = __commonJS({
       }
       return Object.keys(allFiles).sort();
     }
-    function rmRF2(inputPath) {
+    function rmRF(inputPath) {
       (0, exports2.debug)("rm -rf " + inputPath);
       if (getPlatform() == Platform.Windows) {
         try {
@@ -6287,7 +6287,7 @@ var require_task = __commonJS({
             var entries = findMatch(path2.dirname(inputPath), [path2.basename(inputPath)]);
             for (var _i = 0, entries_2 = entries; _i < entries_2.length; _i++) {
               var entry = entries_2[_i];
-              rmRF2(entry);
+              rmRF(entry);
             }
           } else {
             lstats = fs3.lstatSync(inputPath);
@@ -6322,7 +6322,7 @@ var require_task = __commonJS({
         }
       }
     }
-    exports2.rmRF = rmRF2;
+    exports2.rmRF = rmRF;
     function execAsync(tool2, args, options) {
       var tr = this.tool(tool2);
       if (args) {
@@ -30588,10 +30588,10 @@ var WinAppCLIConfigurator = class {
     const randomDir = crypto.randomUUID();
     const tempDir = path.join(os.tmpdir(), "tmp", "runner", randomDir);
     pipeline.debug(`Creating tempdir ${tempDir}`);
-    let downloadPath;
+    let downloadPath = path.join(tempDir, assetName);
     try {
       await pipeline.mkdirP(tempDir);
-      downloadPath = await pipeline.downloadTool(downloadURL);
+      downloadPath = await pipeline.downloadTool(downloadURL, downloadPath);
       const hash = crypto.createHash("sha256");
       for await (const chunk of fs.createReadStream(downloadPath)) {
         hash.update(chunk);
@@ -30599,11 +30599,14 @@ var WinAppCLIConfigurator = class {
       if (hash.digest("hex") !== digest) {
         throw new Error(`SHA-256 verification failed for ${assetName}`);
       }
-      const archivePath = await pipeline.extractZip(downloadPath, tempDir);
+      const archivePath = await pipeline.extractZip(
+        downloadPath,
+        path.join(tempDir, "extracted")
+      );
       await this.moveToPath(archivePath, pipeline);
     } finally {
       try {
-        if (downloadPath) await pipeline.rmRF(downloadPath);
+        await pipeline.rmRF(downloadPath);
       } finally {
         await pipeline.rmRF(tempDir);
       }
@@ -30713,17 +30716,22 @@ var AzurePipeline = class {
   async mkdirP(p) {
     taskLib.mkdirP(p);
   }
-  async downloadTool(url) {
-    return toolLib.downloadTool(url);
+  async downloadTool(url, dest) {
+    return toolLib.downloadTool(url, dest);
   }
   async extractZip(archivePath, dest) {
     return toolLib.extractZip(archivePath, dest);
   }
   async rmRF(p) {
-    taskLib.rmRF(p);
+    await fs2.promises.rm(p, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100
+    });
   }
   moveSync(downloadPath, toolPath) {
-    this.rmRF(toolPath);
+    fs2.rmSync(toolPath, { recursive: true, force: true });
     fs2.renameSync(downloadPath, toolPath);
   }
 };

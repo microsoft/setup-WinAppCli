@@ -32,6 +32,7 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
     let directAgent: jest.Mock
     let getProxy: jest.Mock<(url?: string) => ProxyConfiguration | null>
     let getCert: jest.Mock<() => CertConfiguration | null>
+    let downloadTool: jest.Mock<IPipeline['downloadTool']>
     const originalEnvironment = process.env
 
     beforeEach(() => {
@@ -74,6 +75,9 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
         .fn<(url?: string) => ProxyConfiguration | null>()
         .mockReturnValue(null)
       getCert = jest.fn<() => CertConfiguration | null>().mockReturnValue(null)
+      downloadTool = jest
+        .fn<IPipeline['downloadTool']>()
+        .mockResolvedValue('destination.zip')
       jest.doMock('../src/winappcliconfigurator', () => ({
         ...jest.requireActual<typeof import('../src/winappcliconfigurator')>(
           '../src/winappcliconfigurator'
@@ -86,7 +90,8 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
         Agent: directAgent
       }))
       jest.doMock('@actions/core', () => ({getInput, setFailed, setSecret}))
-      jest.doMock('azure-pipelines-tool-lib/tool', () => ({}))
+      jest.doMock('@actions/tool-cache', () => ({downloadTool}))
+      jest.doMock('azure-pipelines-tool-lib/tool', () => ({downloadTool}))
       jest.doMock('azure-pipelines-task-lib/task', () => ({
         getInput,
         setResult,
@@ -101,6 +106,7 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
       jest.restoreAllMocks()
       jest.dontMock('../src/winappcliconfigurator')
       jest.dontMock('@actions/core')
+      jest.dontMock('@actions/tool-cache')
       jest.dontMock('undici')
       jest.dontMock('azure-pipelines-tool-lib/tool')
       jest.dontMock('azure-pipelines-task-lib/task')
@@ -159,6 +165,46 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
 
     const url =
       'https://api.github.com/repos/microsoft/WinAppCli/releases/latest'
+
+    it('passes the owned archive destination to the toolkit downloader', async () => {
+      const pipeline = await getPipeline()
+      await expect(
+        pipeline.downloadTool(
+          'https://example.com/release.zip',
+          'destination.zip'
+        )
+      ).resolves.toBe('destination.zip')
+      expect(downloadTool).toHaveBeenCalledWith(
+        'https://example.com/release.zip',
+        'destination.zip'
+      )
+    })
+
+    it('removes known partial archives and synchronously replaces managed copies', async () => {
+      const pipeline = await getPipeline()
+      const directory = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'winapp-cleanup-')
+      )
+      try {
+        const partial = path.join(directory, 'partial.zip')
+        fs.writeFileSync(partial, 'partial download')
+        await pipeline.rmRF(partial)
+        expect(fs.existsSync(partial)).toBe(false)
+        const source = path.join(directory, 'extracted')
+        const destination = path.join(directory, 'managed')
+        fs.mkdirSync(source)
+        fs.mkdirSync(destination)
+        fs.writeFileSync(path.join(source, 'winapp.exe'), 'verified copy')
+        fs.writeFileSync(path.join(destination, 'winapp.exe'), 'old copy')
+        pipeline.moveSync(source, destination)
+        expect(
+          fs.readFileSync(path.join(destination, 'winapp.exe'), 'utf8')
+        ).toBe('verified copy')
+        expect(fs.existsSync(source)).toBe(false)
+      } finally {
+        fs.rmSync(directory, {recursive: true, force: true})
+      }
+    })
 
     it('authenticates only the metadata request and masks the token', async () => {
       const pipeline = await getPipeline()

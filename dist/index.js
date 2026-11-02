@@ -25223,10 +25223,10 @@ var WinAppCLIConfigurator = class {
     const randomDir = crypto2.randomUUID();
     const tempDir = path6.join(os6.tmpdir(), "tmp", "runner", randomDir);
     pipeline2.debug(`Creating tempdir ${tempDir}`);
-    let downloadPath;
+    let downloadPath = path6.join(tempDir, assetName);
     try {
       await pipeline2.mkdirP(tempDir);
-      downloadPath = await pipeline2.downloadTool(downloadURL);
+      downloadPath = await pipeline2.downloadTool(downloadURL, downloadPath);
       const hash = crypto2.createHash("sha256");
       for await (const chunk of fs4.createReadStream(downloadPath)) {
         hash.update(chunk);
@@ -25234,11 +25234,14 @@ var WinAppCLIConfigurator = class {
       if (hash.digest("hex") !== digest) {
         throw new Error(`SHA-256 verification failed for ${assetName}`);
       }
-      const archivePath = await pipeline2.extractZip(downloadPath, tempDir);
+      const archivePath = await pipeline2.extractZip(
+        downloadPath,
+        path6.join(tempDir, "extracted")
+      );
       await this.moveToPath(archivePath, pipeline2);
     } finally {
       try {
-        if (downloadPath) await pipeline2.rmRF(downloadPath);
+        await pipeline2.rmRF(downloadPath);
       } finally {
         await pipeline2.rmRF(tempDir);
       }
@@ -25328,8 +25331,8 @@ var GitHubPipeline = class {
   async mkdirP(p) {
     return mkdirP(p);
   }
-  async downloadTool(url) {
-    return downloadTool(url);
+  async downloadTool(url, dest) {
+    return downloadTool(url, dest);
   }
   async extractZip(archivePath, dest) {
     return extractZip(archivePath, dest);

@@ -66,6 +66,9 @@ certificate settings. Metadata requests reject redirects and have a 30-second
 deadline, including reading the response body.
 The verified installation replaces an existing copy in the managed tool directory
 so setup never silently reuses an older, unverified executable.
+Downloads use an explicit path in the owned staging directory, which is cleaned
+even when the downloader rejects after writing only part of the ZIP. Extraction
+uses a separate child directory so the archive is not copied into the installation.
 
 For stronger assurance, supply `sha256` with an independently obtained,
 64-character hexadecimal digest for the runner's architecture, together with a

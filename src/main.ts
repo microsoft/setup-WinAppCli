@@ -38,8 +38,8 @@ class GitHubPipeline implements winappcliconfigurator.IPipeline {
   async mkdirP(p: string): Promise<void> {
     return io.mkdirP(p)
   }
-  async downloadTool(url: string): Promise<string> {
-    return tc.downloadTool(url)
+  async downloadTool(url: string, dest: string): Promise<string> {
+    return tc.downloadTool(url, dest)
   }
   async extractZip(archivePath: string, dest: string): Promise<string> {
     return tc.extractZip(archivePath, dest)

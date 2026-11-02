@@ -66,17 +66,22 @@ class AzurePipeline implements winappcliconfigurator.IPipeline {
   async mkdirP(p: string): Promise<void> {
     taskLib.mkdirP(p)
   }
-  async downloadTool(url: string): Promise<string> {
-    return toolLib.downloadTool(url)
+  async downloadTool(url: string, dest: string): Promise<string> {
+    return toolLib.downloadTool(url, dest)
   }
   async extractZip(archivePath: string, dest: string): Promise<string> {
     return toolLib.extractZip(archivePath, dest)
   }
   async rmRF(p: string): Promise<void> {
-    taskLib.rmRF(p)
+    await fs.promises.rm(p, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100
+    })
   }
   moveSync(downloadPath: string, toolPath: string): void {
-    this.rmRF(toolPath)
+    fs.rmSync(toolPath, {recursive: true, force: true})
     fs.renameSync(downloadPath, toolPath)
   }
 }

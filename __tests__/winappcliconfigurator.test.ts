@@ -113,7 +113,8 @@ describe('verified release installation', () => {
       await getConfig(version, digest.toUpperCase()).configure(pipeline)
       expect(fetchMock).not.toHaveBeenCalled()
       expect(pipeline.downloadTool).toHaveBeenCalledWith(
-        `https://github.com/microsoft/WinAppCli/releases/download/${version}/winappcli-x64.zip`
+        `https://github.com/microsoft/WinAppCli/releases/download/${version}/winappcli-x64.zip`,
+        expect.any(String)
       )
       expect(pipeline.extractZip).toHaveBeenCalledWith(
         archive,
@@ -146,7 +147,8 @@ describe('verified release installation', () => {
         })
       )
       expect(pipeline.downloadTool).toHaveBeenCalledWith(
-        'https://github.com/microsoft/WinAppCli/releases/download/v0.1.8/winappcli-x64.zip'
+        'https://github.com/microsoft/WinAppCli/releases/download/v0.1.8/winappcli-x64.zip',
+        expect.any(String)
       )
       expect(pipeline.addPath).toHaveBeenCalledTimes(1)
     }
@@ -164,7 +166,8 @@ describe('verified release installation', () => {
     )
     await getConfig('v0.1.8').configure(pipeline)
     expect(pipeline.downloadTool).toHaveBeenCalledWith(
-      'https://github.com/microsoft/WinAppCli/releases/download/v0.1.8/winappcli-arm64.zip'
+      'https://github.com/microsoft/WinAppCli/releases/download/v0.1.8/winappcli-arm64.zip',
+      expect.any(String)
     )
   })
 
@@ -335,7 +338,7 @@ describe('verified release installation', () => {
     await expect(
       getConfig('v0.1.8', digest).configure(pipeline)
     ).rejects.toThrow('download failed')
-    expect(pipeline.rmRF).toHaveBeenCalledTimes(1)
+    expect(pipeline.rmRF).toHaveBeenCalledTimes(2)
     expect(pipeline.addPath).not.toHaveBeenCalled()
   })
 
@@ -346,7 +349,7 @@ describe('verified release installation', () => {
     await expect(
       getConfig('v0.1.8', digest).configure(pipeline)
     ).rejects.toThrow('mkdir failed')
-    expect(pipeline.rmRF).toHaveBeenCalledTimes(1)
+    expect(pipeline.rmRF).toHaveBeenCalledTimes(2)
     expect(pipeline.downloadTool).not.toHaveBeenCalled()
     expect(pipeline.addPath).not.toHaveBeenCalled()
   })
@@ -391,5 +394,78 @@ describe('verified release installation', () => {
       getConfig('v0.1.8', digest).configure(pipeline)
     ).rejects.toThrow('archive cleanup failed')
     expect(pipeline.rmRF).toHaveBeenCalledTimes(2)
+  })
+
+  it('removes a partially written archive when the downloader rejects without returning its path', async () => {
+    let partialPath: string | undefined
+    jest.mocked(pipeline.mkdirP).mockImplementationOnce(async directory => {
+      await fs.promises.mkdir(directory, {recursive: true})
+    })
+    jest
+      .mocked(pipeline.downloadTool)
+      .mockImplementation(async (_url, dest) => {
+        partialPath = dest
+        fs.writeFileSync(dest, 'partial archive')
+        throw new Error('download stream aborted')
+      })
+    jest.mocked(pipeline.rmRF).mockImplementation(async target => {
+      await fs.promises.rm(target, {recursive: true, force: true})
+    })
+    try {
+      await expect(
+        getConfig('v0.1.8', digest).configure(pipeline)
+      ).rejects.toThrow('download stream aborted')
+      expect(partialPath).toBeDefined()
+      if (!partialPath) throw new Error('Expected a staged archive destination')
+      expect(fs.existsSync(partialPath)).toBe(false)
+      expect(fs.existsSync(path.dirname(partialPath))).toBe(false)
+      expect(pipeline.extractZip).not.toHaveBeenCalled()
+      expect(pipeline.moveSync).not.toHaveBeenCalled()
+      expect(pipeline.addPath).not.toHaveBeenCalled()
+    } finally {
+      if (partialPath) {
+        fs.rmSync(path.dirname(partialPath), {recursive: true, force: true})
+      }
+    }
+  })
+
+  it('installs only the extracted directory, not the staged ZIP', async () => {
+    let staging: string | undefined
+    jest.mocked(pipeline.mkdirP).mockImplementationOnce(async directory => {
+      staging = directory
+      await fs.promises.mkdir(directory, {recursive: true})
+    })
+    jest
+      .mocked(pipeline.downloadTool)
+      .mockImplementation(async (_url, dest) => {
+        fs.copyFileSync(archive, dest)
+        return dest
+      })
+    jest
+      .mocked(pipeline.extractZip)
+      .mockImplementation(async (_archive, dest) => {
+        fs.mkdirSync(dest)
+        fs.writeFileSync(path.join(dest, 'winapp.exe'), 'test executable')
+        return dest
+      })
+    jest.mocked(pipeline.moveSync).mockImplementation(source => {
+      expect(fs.readdirSync(source)).toEqual(['winapp.exe'])
+    })
+    jest.mocked(pipeline.rmRF).mockImplementation(async target => {
+      await fs.promises.rm(target, {recursive: true, force: true})
+    })
+    try {
+      await getConfig('v0.1.8', digest).configure(pipeline)
+      expect(staging).toBeDefined()
+      if (!staging) throw new Error('Expected a staging directory')
+      expect(pipeline.extractZip).toHaveBeenCalledWith(
+        path.join(staging, 'winappcli-x64.zip'),
+        path.join(staging, 'extracted')
+      )
+      expect(pipeline.moveSync).toHaveBeenCalledTimes(1)
+      expect(fs.existsSync(staging)).toBe(false)
+    } finally {
+      if (staging) fs.rmSync(staging, {recursive: true, force: true})
+    }
   })
 })

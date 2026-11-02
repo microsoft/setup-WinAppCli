@@ -17,7 +17,7 @@ export interface IPipeline {
   debug(message: string): void
   addPath(p: string): void
   mkdirP(p: string): Promise<void>
-  downloadTool(url: string): Promise<string>
+  downloadTool(url: string, dest: string): Promise<string>
   extractZip(archivePath: string, dest: string): Promise<string>
   rmRF(p: string): Promise<void>
   moveSync(downloadPath: string, toolPath: string): void
@@ -96,10 +96,10 @@ export class WinAppCLIConfigurator {
     const randomDir: string = crypto.randomUUID()
     const tempDir = path.join(os.tmpdir(), 'tmp', 'runner', randomDir)
     pipeline.debug(`Creating tempdir ${tempDir}`)
-    let downloadPath: string | undefined
+    let downloadPath = path.join(tempDir, assetName)
     try {
       await pipeline.mkdirP(tempDir)
-      downloadPath = await pipeline.downloadTool(downloadURL)
+      downloadPath = await pipeline.downloadTool(downloadURL, downloadPath)
       const hash = crypto.createHash('sha256')
       for await (const chunk of fs.createReadStream(downloadPath)) {
         hash.update(chunk)
@@ -107,11 +107,14 @@ export class WinAppCLIConfigurator {
       if (hash.digest('hex') !== digest) {
         throw new Error(`SHA-256 verification failed for ${assetName}`)
       }
-      const archivePath = await pipeline.extractZip(downloadPath, tempDir)
+      const archivePath = await pipeline.extractZip(
+        downloadPath,
+        path.join(tempDir, 'extracted')
+      )
       await this.moveToPath(archivePath, pipeline)
     } finally {
       try {
-        if (downloadPath) await pipeline.rmRF(downloadPath)
+        await pipeline.rmRF(downloadPath)
       } finally {
         await pipeline.rmRF(tempDir)
       }
