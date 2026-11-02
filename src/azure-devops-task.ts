@@ -33,7 +33,10 @@ class AzurePipeline implements winappcliconfigurator.IPipeline {
 async function run(): Promise<void> {
   try {
     await winappcliconfigurator
-      .getConfig(taskLib.getInput(Version) || 'latest')
+      .getConfig(
+        taskLib.getInput(Version) || 'latest',
+        taskLib.getInput('sha256') || ''
+      )
       .configure(new AzurePipeline())
   } catch (err) {
     if (err instanceof Error)

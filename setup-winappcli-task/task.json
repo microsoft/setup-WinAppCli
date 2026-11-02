@@ -22,6 +22,14 @@
             "defaultValue": "latest",
             "required": false,
             "helpMarkDown": "Release version: latest or vMAJOR.MINOR.PATCH, optionally with a prerelease suffix (e.g. v0.2.0-preview.1)."
+        },
+        {
+            "name": "sha256",
+            "type": "string",
+            "label": "Expected SHA-256",
+            "defaultValue": "",
+            "required": false,
+            "helpMarkDown": "Expected SHA-256 of the architecture-specific release ZIP. Defaults to the digest from GitHub release metadata."
         }
     ],
     "execution": {
