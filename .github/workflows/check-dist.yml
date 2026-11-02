@@ -50,6 +50,9 @@ jobs:
 
       - name: Rebuild both distributables
         run: |
+          if (Test-Path -LiteralPath .trusted-build.mjs) {
+            Remove-Item -LiteralPath .trusted-build.mjs -Recurse -Force
+          }
           Copy-Item .trusted-build\build.mjs .trusted-build.mjs
           Remove-Item dist\index.js, setup-winappcli-task\index.js
           node .trusted-build.mjs
