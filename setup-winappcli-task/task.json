@@ -21,7 +21,7 @@
             "label": "Version",
             "defaultValue": "latest",
             "required": false,
-            "helpMarkDown": "Version"
+            "helpMarkDown": "Release version: latest or vMAJOR.MINOR.PATCH, optionally with a prerelease suffix (e.g. v0.2.0-preview.1)."
         }
     ],
     "execution": {

@@ -3,6 +3,10 @@ import * as os from 'os'
 import * as crypto from 'crypto'
 import * as fs from 'fs'
 
+// Unlike $, the final assertion also rejects trailing line terminators.
+const releaseVersion =
+  /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?![\s\S])/
+
 export function getConfig(version: string): WinAppCLIConfigurator {
   return new WinAppCLIConfigurator(version || 'latest')
 }
@@ -70,6 +74,14 @@ export class WinAppCLIConfigurator {
   validate(): void {
     if (process.platform !== 'win32') {
       throw new Error(`Unsupported platform: ${process.platform}`)
+    }
+    if (this.version !== 'latest' && !releaseVersion.test(this.version)) {
+      throw new Error(
+        'Invalid version: expected latest or a release tag such as v0.1.0'
+      )
+    }
+    if (process.arch !== 'x64' && process.arch !== 'arm64') {
+      throw new Error(`Unsupported architecture: ${process.arch}`)
     }
   }
 }

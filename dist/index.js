@@ -25170,6 +25170,7 @@ var path6 = __toESM(require("path"));
 var os6 = __toESM(require("os"));
 var crypto2 = __toESM(require("crypto"));
 var fs4 = __toESM(require("fs"));
+var releaseVersion = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?![\s\S])/;
 function getConfig(version) {
   return new WinAppCLIConfigurator(version || "latest");
 }
@@ -25209,6 +25210,14 @@ var WinAppCLIConfigurator = class {
     if (process.platform !== "win32") {
       throw new Error(`Unsupported platform: ${process.platform}`);
     }
+    if (this.version !== "latest" && !releaseVersion.test(this.version)) {
+      throw new Error(
+        "Invalid version: expected latest or a release tag such as v0.1.0"
+      );
+    }
+    if (process.arch !== "x64" && process.arch !== "arm64") {
+      throw new Error(`Unsupported architecture: ${process.arch}`);
+    }
   }
 };
 function binPath() {
@@ -25244,7 +25253,7 @@ var GitHubPipeline = class {
 };
 async function run() {
   try {
-    await getConfig(getInput(Version)).configure(new GitHubPipeline());
+    await getConfig(getInput(Version, { trimWhitespace: false })).configure(new GitHubPipeline());
   } catch (error2) {
     if (error2 instanceof Error) setFailed(error2.message);
   }
