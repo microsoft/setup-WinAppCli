@@ -15,7 +15,7 @@ inputs:
   github-token:
     required: false
     description: 'Token for the official GitHub release API to avoid shared unauthenticated rate limits. Not sent to release downloads.'
-    default: ${{ github.token }}
+    default: ${{ github.server_url == 'https://github.com' && github.token || '' }}
 runs:
   using: 'node24'
   main: 'dist/index.js'

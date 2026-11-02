@@ -3,7 +3,8 @@ import * as tc from '@actions/tool-cache'
 import * as io from '@actions/io'
 import * as winappcliconfigurator from './winappcliconfigurator'
 import * as fs from 'fs-extra'
-import {EnvHttpProxyAgent, fetch} from 'undici'
+import {Agent, ProxyAgent, fetch} from 'undici'
+import {getProxyUrl} from '@actions/http-client'
 
 const Version = 'version'
 
@@ -11,7 +12,8 @@ class GitHubPipeline implements winappcliconfigurator.IPipeline {
   async getRelease(url: string): Promise<unknown> {
     const token = core.getInput('github-token')
     if (token) core.setSecret(token)
-    const dispatcher = new EnvHttpProxyAgent()
+    const proxyUrl = getProxyUrl(url)
+    const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : new Agent()
     try {
       return await winappcliconfigurator.fetchRelease(
         url,

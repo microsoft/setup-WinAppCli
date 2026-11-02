@@ -9516,7 +9516,7 @@ var require_Util = __commonJS({
       });
     }
     exports2.decompressGzippedContent = decompressGzippedContent;
-    function buildProxyBypassRegexFromEnv(bypass) {
+    function buildProxyBypassRegexFromEnv2(bypass) {
       try {
         return new RegExp(bypass, "i");
       } catch (err) {
@@ -9527,7 +9527,7 @@ var require_Util = __commonJS({
         throw err;
       }
     }
-    exports2.buildProxyBypassRegexFromEnv = buildProxyBypassRegexFromEnv;
+    exports2.buildProxyBypassRegexFromEnv = buildProxyBypassRegexFromEnv2;
     function obtainContentCharset(response) {
       const nodeSupportedEncodings = ["ascii", "utf8", "utf16le", "ucs2", "base64", "binary", "hex"];
       const contentType = response.message.headers["content-type"] || "";
@@ -20527,7 +20527,7 @@ var require_env_http_proxy_agent = __commonJS({
       "https:": 443
     };
     var experimentalWarned = false;
-    var EnvHttpProxyAgent2 = class extends DispatcherBase {
+    var EnvHttpProxyAgent = class extends DispatcherBase {
       #noProxyValue = null;
       #noProxyEntries = null;
       #opts = null;
@@ -20646,7 +20646,7 @@ var require_env_http_proxy_agent = __commonJS({
         return process.env.no_proxy ?? process.env.NO_PROXY ?? "";
       }
     };
-    module2.exports = EnvHttpProxyAgent2;
+    module2.exports = EnvHttpProxyAgent;
   }
 });
 
@@ -30401,7 +30401,7 @@ var require_undici = __commonJS({
     var BalancedPool = require_balanced_pool();
     var Agent2 = require_agent();
     var ProxyAgent2 = require_proxy_agent();
-    var EnvHttpProxyAgent2 = require_env_http_proxy_agent();
+    var EnvHttpProxyAgent = require_env_http_proxy_agent();
     var RetryAgent = require_retry_agent();
     var errors = require_errors();
     var util = require_util();
@@ -30424,7 +30424,7 @@ var require_undici = __commonJS({
     module2.exports.BalancedPool = BalancedPool;
     module2.exports.Agent = Agent2;
     module2.exports.ProxyAgent = ProxyAgent2;
-    module2.exports.EnvHttpProxyAgent = EnvHttpProxyAgent2;
+    module2.exports.EnvHttpProxyAgent = EnvHttpProxyAgent;
     module2.exports.RetryAgent = RetryAgent;
     module2.exports.RetryHandler = RetryHandler;
     module2.exports.DecoratorHandler = DecoratorHandler;
@@ -30658,6 +30658,7 @@ function binPath() {
 // src/azure-devops-task.ts
 var fs2 = __toESM(require("fs"));
 var import_undici = __toESM(require_undici());
+var import_Util = __toESM(require_Util());
 var Version = "version";
 var AzurePipeline = class {
   async getRelease(url) {
@@ -30671,13 +30672,16 @@ var AzurePipeline = class {
       pfx: cert?.certArchiveFile ? fs2.readFileSync(cert.certArchiveFile) : void 0,
       passphrase: cert?.passphrase
     };
-    const tlsOptions = { connect: tls, requestTls: tls, proxyTls: tls };
-    const dispatcher = proxy ? new import_undici.ProxyAgent({
-      uri: proxy.proxyUrl,
-      token: proxy.proxyUsername || proxy.proxyPassword ? `Basic ${Buffer.from(`${proxy.proxyUsername || ""}:${proxy.proxyPassword || ""}`).toString("base64")}` : void 0,
+    const bypassEnvironmentProxy = !configuredProxy && process.env.NO_PROXY ? process.env.NO_PROXY.split(",").some(
+      (bypass) => (0, import_Util.buildProxyBypassRegexFromEnv)(bypass).test(url)
+    ) : false;
+    const proxyUrl = configuredProxy ? proxy?.proxyUrl : bypassEnvironmentProxy ? void 0 : process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    const dispatcher = proxyUrl ? new import_undici.ProxyAgent({
+      uri: proxyUrl,
+      token: proxy?.proxyUsername || proxy?.proxyPassword ? `Basic ${Buffer.from(`${proxy.proxyUsername || ""}:${proxy.proxyPassword || ""}`).toString("base64")}` : void 0,
       requestTls: tls,
       proxyTls: tls
-    }) : configuredProxy ? new import_undici.Agent({ connect: tls }) : new import_undici.EnvHttpProxyAgent(tlsOptions);
+    }) : new import_undici.Agent({ connect: tls });
     try {
       const token = taskLib.getInput("github-token") || "";
       if (token) taskLib.setSecret(token);

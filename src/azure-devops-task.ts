@@ -2,8 +2,9 @@ import * as taskLib from 'azure-pipelines-task-lib/task'
 import * as toolLib from 'azure-pipelines-tool-lib/tool'
 import * as winappcliconfigurator from './winappcliconfigurator'
 import * as fs from 'fs'
-import {Agent, EnvHttpProxyAgent, ProxyAgent, fetch} from 'undici'
+import {Agent, ProxyAgent, fetch} from 'undici'
 import type {ConnectionOptions} from 'tls'
+import {buildProxyBypassRegexFromEnv} from 'typed-rest-client/Util'
 
 const Version = 'version'
 
@@ -21,20 +22,28 @@ class AzurePipeline implements winappcliconfigurator.IPipeline {
         : undefined,
       passphrase: cert?.passphrase
     }
-    const tlsOptions = {connect: tls, requestTls: tls, proxyTls: tls}
-    const dispatcher = proxy
+    const bypassEnvironmentProxy =
+      !configuredProxy && process.env.NO_PROXY
+        ? process.env.NO_PROXY.split(',').some(bypass =>
+            buildProxyBypassRegexFromEnv(bypass).test(url)
+          )
+        : false
+    const proxyUrl = configuredProxy
+      ? proxy?.proxyUrl
+      : bypassEnvironmentProxy
+        ? undefined
+        : process.env.HTTPS_PROXY || process.env.HTTP_PROXY
+    const dispatcher = proxyUrl
       ? new ProxyAgent({
-          uri: proxy.proxyUrl,
+          uri: proxyUrl,
           token:
-            proxy.proxyUsername || proxy.proxyPassword
+            proxy?.proxyUsername || proxy?.proxyPassword
               ? `Basic ${Buffer.from(`${proxy.proxyUsername || ''}:${proxy.proxyPassword || ''}`).toString('base64')}`
               : undefined,
           requestTls: tls,
           proxyTls: tls
         })
-      : configuredProxy
-        ? new Agent({connect: tls})
-        : new EnvHttpProxyAgent(tlsOptions)
+      : new Agent({connect: tls})
     try {
       const token = taskLib.getInput('github-token') || ''
       if (token) taskLib.setSecret(token)

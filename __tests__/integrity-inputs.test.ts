@@ -28,12 +28,23 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
     let close: jest.Mock<() => Promise<void>>
     let proxyAgent: jest.Mock
     let directAgent: jest.Mock
-    let environmentAgent: jest.Mock
     let getProxy: jest.Mock<(url?: string) => ProxyConfiguration | null>
     let getCert: jest.Mock<() => CertConfiguration | null>
+    const originalEnvironment = process.env
 
     beforeEach(() => {
       jest.resetModules()
+      jest.replaceProperty(process, 'env', {...originalEnvironment})
+      for (const name of [
+        'HTTP_PROXY',
+        'HTTPS_PROXY',
+        'NO_PROXY',
+        'http_proxy',
+        'https_proxy',
+        'no_proxy'
+      ]) {
+        delete process.env[name]
+      }
       configure = jest
         .fn<(pipeline: IPipeline) => Promise<void>>()
         .mockResolvedValue()
@@ -52,7 +63,6 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
       close = jest.fn<() => Promise<void>>().mockResolvedValue()
       proxyAgent = jest.fn().mockImplementation(() => ({close}))
       directAgent = jest.fn().mockImplementation(() => ({close}))
-      environmentAgent = jest.fn().mockImplementation(() => ({close}))
       fetchMock = jest
         .fn<MetadataFetch>()
         .mockResolvedValue(
@@ -71,8 +81,7 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
       jest.doMock('undici', () => ({
         fetch: fetchMock,
         ProxyAgent: proxyAgent,
-        Agent: directAgent,
-        EnvHttpProxyAgent: environmentAgent
+        Agent: directAgent
       }))
       jest.doMock('@actions/core', () => ({getInput, setFailed, setSecret}))
       jest.doMock('azure-pipelines-tool-lib/tool', () => ({}))
@@ -87,6 +96,7 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
     })
 
     afterEach(() => {
+      jest.restoreAllMocks()
       jest.dontMock('../src/winappcliconfigurator')
       jest.dontMock('@actions/core')
       jest.dontMock('undici')
@@ -209,15 +219,39 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
       expect(close).toHaveBeenCalledTimes(1)
     })
 
-    it('uses the environment-aware proxy transport by default', async () => {
+    it('uses a direct transport when no proxy is configured', async () => {
       const pipeline = await getPipeline()
       await pipeline.getRelease(url)
-      expect(environmentAgent).toHaveBeenCalledTimes(1)
+      expect(directAgent).toHaveBeenCalledTimes(1)
       expect(proxyAgent).not.toHaveBeenCalled()
       if (integration === 'Azure DevOps') {
         expect(getProxy).toHaveBeenCalledWith(url)
       }
     })
+
+    it.each([
+      {bypass: 'github.com', usesProxy: false},
+      {bypass: 'API.GITHUB.COM', usesProxy: false},
+      {bypass: '.github.com', usesProxy: false},
+      {bypass: '*', usesProxy: false},
+      {bypass: 'github.com:443', usesProxy: integration === 'Azure DevOps'},
+      {bypass: 'unrelated.example', usesProxy: true},
+      {bypass: '', usesProxy: true}
+    ])(
+      'preserves actual toolkit NO_PROXY matching for $bypass (proxy: $usesProxy)',
+      async ({bypass, usesProxy}) => {
+        const undici = jest.requireActual<typeof import('undici')>('undici')
+        jest.doMock('undici', () => ({...undici, fetch: fetchMock}))
+        process.env.HTTPS_PROXY = 'http://proxy.example:8080'
+        process.env.NO_PROXY = bypass
+        const pipeline = await getPipeline()
+        await pipeline.getRelease(url)
+        const dispatcher = fetchMock.mock.calls[0][1].dispatcher
+        expect(dispatcher).toBeInstanceOf(
+          usesProxy ? undici.ProxyAgent : undici.Agent
+        )
+      }
+    )
 
     if (integration === 'Azure DevOps') {
       it('does not reapply environment proxies when the agent bypasses this URL', async () => {
@@ -233,7 +267,6 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
         await pipeline.getRelease(url)
         expect(directAgent).toHaveBeenCalledTimes(1)
         expect(proxyAgent).not.toHaveBeenCalled()
-        expect(environmentAgent).not.toHaveBeenCalled()
       })
 
       it('honors agent proxy credentials and CA/client certificate configuration', async () => {
@@ -275,7 +308,6 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
             requestTls: tls,
             proxyTls: tls
           })
-          expect(environmentAgent).not.toHaveBeenCalled()
         } finally {
           fs.rmSync(directory, {recursive: true, force: true})
         }
@@ -289,8 +321,17 @@ describe.each(['GitHub Actions', 'Azure DevOps'])(
         await expect(pipeline.getRelease(url)).rejects.toThrow('ENOENT')
         expect(fetchMock).not.toHaveBeenCalled()
         expect(proxyAgent).not.toHaveBeenCalled()
-        expect(environmentAgent).not.toHaveBeenCalled()
       })
     }
   }
 )
+
+it('defaults to the workflow token only for the public GitHub server', () => {
+  const manifest = fs.readFileSync(
+    path.join(__dirname, '..', 'action.yml'),
+    'utf8'
+  )
+  expect(manifest).toContain(
+    "default: ${{ github.server_url == 'https://github.com' && github.token || '' }}"
+  )
+})
