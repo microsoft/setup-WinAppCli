@@ -48,7 +48,7 @@ extends:
           env:
             RUNNER_TEMP: $(Agent.TempDirectory)
         - ${{ if eq(parameters['DoEsrp'], 'true') }}:
-          - task: EsrpCodeSigning@5
+          - task: EsrpCodeSigning@6
             displayName: ESRP CodeSigning - VSIX
             inputs:
               ConnectedServiceName: $(SigningServiceName)
