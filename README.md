@@ -19,7 +19,7 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v6
-    - uses: microsoft/setup-WinAppCli@v0.1
+    - uses: microsoft/setup-WinAppCli@v0.3
     - run: winapp restore
 ```
 
