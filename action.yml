@@ -9,6 +9,13 @@ inputs:
     required: false
     description: "Release version: 'latest' or 'vMAJOR.MINOR.PATCH', optionally with a prerelease suffix (e.g. 'v0.2.0-preview.1')."
     default: 'latest'
+  sha256:
+    required: false
+    description: 'Expected SHA-256 of the architecture-specific release ZIP. Defaults to the digest from GitHub release metadata.'
+  github-token:
+    required: false
+    description: 'Token for the official GitHub release API to avoid shared unauthenticated rate limits. Not sent to release downloads.'
+    default: ${{ github.server_url == 'https://github.com' && github.token || '' }}
 runs:
   using: 'node24'
   main: 'dist/index.js'

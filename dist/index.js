@@ -8509,7 +8509,7 @@ var require_agent = __commonJS({
     function defaultFactory(origin, opts) {
       return opts && opts.connections === 1 ? new Client(origin, opts) : new Pool(origin, opts);
     }
-    var Agent3 = class extends DispatcherBase {
+    var Agent4 = class extends DispatcherBase {
       constructor({ factory = defaultFactory, maxRedirections = 0, connect, ...options } = {}) {
         if (typeof factory !== "function") {
           throw new InvalidArgumentError("factory must be a function.");
@@ -8581,7 +8581,7 @@ var require_agent = __commonJS({
         await Promise.all(destroyPromises);
       }
     };
-    module2.exports = Agent3;
+    module2.exports = Agent4;
   }
 });
 
@@ -8591,7 +8591,7 @@ var require_proxy_agent = __commonJS({
     "use strict";
     var { kProxy, kClose, kDestroy, kDispatch, kInterceptors } = require_symbols();
     var { URL: URL2 } = require("node:url");
-    var Agent3 = require_agent();
+    var Agent4 = require_agent();
     var Pool = require_pool();
     var DispatcherBase = require_dispatcher_base();
     var { InvalidArgumentError, RequestAbortedError, SecureProxyConnectionError } = require_errors();
@@ -8663,7 +8663,7 @@ var require_proxy_agent = __commonJS({
         return this.#client.destroy(err);
       }
     };
-    var ProxyAgent2 = class extends DispatcherBase {
+    var ProxyAgent3 = class extends DispatcherBase {
       constructor(opts) {
         super();
         if (!opts || typeof opts === "object" && !(opts instanceof URL2) && !opts.uri) {
@@ -8706,7 +8706,7 @@ var require_proxy_agent = __commonJS({
           return agentFactory(origin2, options);
         };
         this[kClient] = clientFactory(url, { connect });
-        this[kAgent] = new Agent3({
+        this[kAgent] = new Agent4({
           ...opts,
           factory,
           connect: async (opts2, callback) => {
@@ -8804,7 +8804,7 @@ var require_proxy_agent = __commonJS({
         throw new InvalidArgumentError("Proxy-Authorization should be sent in ProxyAgent constructor");
       }
     }
-    module2.exports = ProxyAgent2;
+    module2.exports = ProxyAgent3;
   }
 });
 
@@ -8814,8 +8814,8 @@ var require_env_http_proxy_agent = __commonJS({
     "use strict";
     var DispatcherBase = require_dispatcher_base();
     var { kClose, kDestroy, kClosed, kDestroyed, kDispatch, kNoProxyAgent, kHttpProxyAgent, kHttpsProxyAgent } = require_symbols();
-    var ProxyAgent2 = require_proxy_agent();
-    var Agent3 = require_agent();
+    var ProxyAgent3 = require_proxy_agent();
+    var Agent4 = require_agent();
     var DEFAULT_PORTS = {
       "http:": 80,
       "https:": 443
@@ -8835,16 +8835,16 @@ var require_env_http_proxy_agent = __commonJS({
           });
         }
         const { httpProxy, httpsProxy, noProxy, ...agentOpts } = opts;
-        this[kNoProxyAgent] = new Agent3(agentOpts);
+        this[kNoProxyAgent] = new Agent4(agentOpts);
         const HTTP_PROXY = httpProxy ?? process.env.http_proxy ?? process.env.HTTP_PROXY;
         if (HTTP_PROXY) {
-          this[kHttpProxyAgent] = new ProxyAgent2({ ...agentOpts, uri: HTTP_PROXY });
+          this[kHttpProxyAgent] = new ProxyAgent3({ ...agentOpts, uri: HTTP_PROXY });
         } else {
           this[kHttpProxyAgent] = this[kNoProxyAgent];
         }
         const HTTPS_PROXY = httpsProxy ?? process.env.https_proxy ?? process.env.HTTPS_PROXY;
         if (HTTPS_PROXY) {
-          this[kHttpsProxyAgent] = new ProxyAgent2({ ...agentOpts, uri: HTTPS_PROXY });
+          this[kHttpsProxyAgent] = new ProxyAgent3({ ...agentOpts, uri: HTTPS_PROXY });
         } else {
           this[kHttpsProxyAgent] = this[kHttpProxyAgent];
         }
@@ -11157,7 +11157,7 @@ var require_mock_agent = __commonJS({
   "node_modules/undici/lib/mock/mock-agent.js"(exports2, module2) {
     "use strict";
     var { kClients } = require_symbols();
-    var Agent3 = require_agent();
+    var Agent4 = require_agent();
     var {
       kAgent,
       kMockAgentSet,
@@ -11184,7 +11184,7 @@ var require_mock_agent = __commonJS({
         if (opts?.agent && typeof opts.agent.dispatch !== "function") {
           throw new InvalidArgumentError("Argument opts.agent must implement Agent");
         }
-        const agent = opts?.agent ? opts.agent : new Agent3(opts);
+        const agent = opts?.agent ? opts.agent : new Agent4(opts);
         this[kAgent] = agent;
         this[kClients] = agent[kClients];
         this[kOptions] = buildMockOptions(opts);
@@ -11288,9 +11288,9 @@ var require_global2 = __commonJS({
     "use strict";
     var globalDispatcher = /* @__PURE__ */ Symbol.for("undici.globalDispatcher.1");
     var { InvalidArgumentError } = require_errors();
-    var Agent3 = require_agent();
+    var Agent4 = require_agent();
     if (getGlobalDispatcher() === void 0) {
-      setGlobalDispatcher(new Agent3());
+      setGlobalDispatcher(new Agent4());
     }
     function setGlobalDispatcher(agent) {
       if (!agent || typeof agent.dispatch !== "function") {
@@ -13472,7 +13472,7 @@ var require_fetch = __commonJS({
     function handleFetchDone(response) {
       finalizeAndReportTiming(response, "fetch");
     }
-    function fetch(input, init = void 0) {
+    function fetch3(input, init = void 0) {
       webidl.argumentLengthCheck(arguments, 1, "globalThis.fetch");
       let p = createDeferredPromise();
       let requestObject;
@@ -14429,7 +14429,7 @@ var require_fetch = __commonJS({
       }
     }
     module2.exports = {
-      fetch,
+      fetch: fetch3,
       Fetch,
       fetching,
       finalizeAndReportTiming
@@ -18693,8 +18693,8 @@ var require_undici = __commonJS({
     var Dispatcher = require_dispatcher();
     var Pool = require_pool();
     var BalancedPool = require_balanced_pool();
-    var Agent3 = require_agent();
-    var ProxyAgent2 = require_proxy_agent();
+    var Agent4 = require_agent();
+    var ProxyAgent3 = require_proxy_agent();
     var EnvHttpProxyAgent = require_env_http_proxy_agent();
     var RetryAgent = require_retry_agent();
     var errors = require_errors();
@@ -18716,8 +18716,8 @@ var require_undici = __commonJS({
     module2.exports.Client = Client;
     module2.exports.Pool = Pool;
     module2.exports.BalancedPool = BalancedPool;
-    module2.exports.Agent = Agent3;
-    module2.exports.ProxyAgent = ProxyAgent2;
+    module2.exports.Agent = Agent4;
+    module2.exports.ProxyAgent = ProxyAgent3;
     module2.exports.EnvHttpProxyAgent = EnvHttpProxyAgent;
     module2.exports.RetryAgent = RetryAgent;
     module2.exports.RetryHandler = RetryHandler;
@@ -18778,7 +18778,7 @@ var require_undici = __commonJS({
     module2.exports.setGlobalDispatcher = setGlobalDispatcher;
     module2.exports.getGlobalDispatcher = getGlobalDispatcher;
     var fetchImpl = require_fetch().fetch;
-    module2.exports.fetch = async function fetch(init, options = void 0) {
+    module2.exports.fetch = async function fetch3(init, options = void 0) {
       try {
         return await fetchImpl(init, options);
       } catch (err) {
@@ -21338,7 +21338,7 @@ var require_graceful_fs = __commonJS({
     function patch(fs7) {
       polyfills(fs7);
       fs7.gracefulify = patch;
-      fs7.createReadStream = createReadStream;
+      fs7.createReadStream = createReadStream2;
       fs7.createWriteStream = createWriteStream2;
       var fs$readFile = fs7.readFile;
       fs7.readFile = readFile;
@@ -21548,7 +21548,7 @@ var require_graceful_fs = __commonJS({
           }
         });
       }
-      function createReadStream(path7, options) {
+      function createReadStream2(path7, options) {
         return new fs7.ReadStream(path7, options);
       }
       function createWriteStream2(path7, options) {
@@ -23253,6 +23253,10 @@ var MediaTypes;
 (function(MediaTypes2) {
   MediaTypes2["ApplicationJson"] = "application/json";
 })(MediaTypes || (MediaTypes = {}));
+function getProxyUrl2(serverUrl) {
+  const proxyUrl = getProxyUrl(new URL(serverUrl));
+  return proxyUrl ? proxyUrl.href : "";
+}
 var HttpRedirectCodes = [
   HttpCodes.MovedPermanently,
   HttpCodes.ResourceMoved,
@@ -24853,6 +24857,9 @@ var ExitCode;
   ExitCode2[ExitCode2["Success"] = 0] = "Success";
   ExitCode2[ExitCode2["Failure"] = 1] = "Failure";
 })(ExitCode || (ExitCode = {}));
+function setSecret(secret) {
+  issueCommand("add-mask", {}, secret);
+}
 function addPath(inputPath) {
   const filePath = process.env["GITHUB_PATH"] || "";
   if (filePath) {
@@ -25171,39 +25178,103 @@ var os6 = __toESM(require("os"));
 var crypto2 = __toESM(require("crypto"));
 var fs4 = __toESM(require("fs"));
 var releaseVersion = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?![\s\S])/;
-function getConfig(version) {
-  return new WinAppCLIConfigurator(version || "latest");
+var sha256Digest = /^[a-fA-F0-9]{64}(?![\s\S])/;
+function getConfig(version, sha256 = "") {
+  return new WinAppCLIConfigurator(version || "latest", sha256);
+}
+async function fetchRelease(url, token = "", request = fetch) {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "setup-WinAppCli",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await request(url, {
+    headers,
+    redirect: "error",
+    signal: AbortSignal.timeout(3e4)
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    const rateLimited = response.headers.get("x-ratelimit-remaining") === "0";
+    throw new Error(
+      `Unable to resolve WinAppCli release: GitHub API returned ${response.status}${rateLimited ? " (API rate limit exceeded)" : ""}`
+    );
+  }
+  return JSON.parse(body);
+}
+function proxyAuthorization(proxyUrl, username, password) {
+  const parsed = new URL(proxyUrl);
+  const user = username ?? decodeURIComponent(parsed.username);
+  const pass = password ?? decodeURIComponent(parsed.password);
+  return user || pass ? `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}` : void 0;
 }
 var WinAppCLIConfigurator = class {
-  constructor(version) {
+  constructor(version, sha256 = "") {
+    this.sha256 = sha256;
     this.version = version;
   }
   async configure(pipeline2) {
     this.validate();
-    let versionString;
-    if (this.version === "latest") {
-      versionString = `latest/download`;
-    } else {
-      versionString = `download/${this.version}`;
-    }
-    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/${versionString}/winappcli-${process.arch}.zip`;
+    const assetName = `winappcli-${process.arch}.zip`;
+    const { version, digest } = await this.resolveRelease(assetName, pipeline2);
+    const downloadURL = `https://github.com/microsoft/WinAppCli/releases/download/${version}/${assetName}`;
     pipeline2.debug(`Downloading tool from ${downloadURL}`);
     const randomDir = crypto2.randomUUID();
     const tempDir = path6.join(os6.tmpdir(), "tmp", "runner", randomDir);
     pipeline2.debug(`Creating tempdir ${tempDir}`);
-    await pipeline2.mkdirP(tempDir);
-    const downloadPath = await pipeline2.downloadTool(downloadURL);
-    const archivePath = await pipeline2.extractZip(downloadPath, tempDir);
-    await this.moveToPath(archivePath, "winapp.exe", pipeline2);
-    return pipeline2.rmRF(tempDir);
+    let downloadPath = path6.join(tempDir, assetName);
+    try {
+      await pipeline2.mkdirP(tempDir);
+      downloadPath = await pipeline2.downloadTool(downloadURL, downloadPath);
+      const hash = crypto2.createHash("sha256");
+      for await (const chunk of fs4.createReadStream(downloadPath)) {
+        hash.update(chunk);
+      }
+      if (hash.digest("hex") !== digest) {
+        throw new Error(`SHA-256 verification failed for ${assetName}`);
+      }
+      const archivePath = await pipeline2.extractZip(
+        downloadPath,
+        path6.join(tempDir, "extracted")
+      );
+      await this.moveToPath(archivePath, pipeline2);
+    } finally {
+      try {
+        await pipeline2.rmRF(downloadPath);
+      } finally {
+        await pipeline2.rmRF(tempDir);
+      }
+    }
   }
-  async moveToPath(downloadPath, name, pipeline2) {
+  async resolveRelease(assetName, pipeline2) {
+    if (this.sha256 && this.version !== "latest") {
+      return { version: this.version, digest: this.sha256.toLowerCase() };
+    }
+    const releasePath = this.version === "latest" ? "latest" : `tags/${this.version}`;
+    const release = await pipeline2.getRelease(
+      `https://api.github.com/repos/microsoft/WinAppCli/releases/${releasePath}`
+    );
+    if (typeof release !== "object" || release === null || !("tag_name" in release) || typeof release.tag_name !== "string" || !releaseVersion.test(release.tag_name) || this.version !== "latest" && release.tag_name !== this.version || !("assets" in release) || !Array.isArray(release.assets)) {
+      throw new Error("Invalid WinAppCli release metadata");
+    }
+    const assets = release.assets;
+    const asset = assets.find(
+      (asset2) => typeof asset2 === "object" && asset2 !== null && "name" in asset2 && asset2.name === assetName
+    );
+    if (typeof asset !== "object" || asset === null || !("digest" in asset) || typeof asset.digest !== "string" || !asset.digest.startsWith("sha256:") || !sha256Digest.test(asset.digest.slice("sha256:".length))) {
+      throw new Error(`Missing SHA-256 release digest for ${assetName}`);
+    }
+    const digest = asset.digest.slice("sha256:".length).toLowerCase();
+    if (this.sha256 && this.sha256.toLowerCase() !== digest) {
+      throw new Error("Pinned SHA-256 does not match the release asset digest");
+    }
+    return { version: release.tag_name, digest };
+  }
+  async moveToPath(downloadPath, pipeline2) {
     const toolPath = binPath();
     await pipeline2.mkdirP(toolPath);
-    const dest = path6.join(toolPath, name);
-    if (!fs4.existsSync(dest)) {
-      pipeline2.moveSync(downloadPath, toolPath);
-    }
+    pipeline2.moveSync(downloadPath, toolPath);
     pipeline2.addPath(toolPath);
   }
   validate() {
@@ -25214,6 +25285,9 @@ var WinAppCLIConfigurator = class {
       throw new Error(
         "Invalid version: expected latest or a release tag such as v0.1.0"
       );
+    }
+    if (this.sha256 && !sha256Digest.test(this.sha256)) {
+      throw new Error("Invalid sha256: expected 64 hexadecimal characters");
     }
     if (process.arch !== "x64" && process.arch !== "arm64") {
       throw new Error(`Unsupported architecture: ${process.arch}`);
@@ -25227,8 +25301,27 @@ function binPath() {
 
 // src/main.ts
 var fs5 = __toESM(require_lib());
+var import_undici2 = __toESM(require_undici());
 var Version = "version";
 var GitHubPipeline = class {
+  async getRelease(url) {
+    const token = getInput("github-token");
+    if (token) setSecret(token);
+    const proxyUrl = getProxyUrl2(url);
+    const dispatcher = proxyUrl ? new import_undici2.ProxyAgent({
+      uri: proxyUrl,
+      token: proxyAuthorization(proxyUrl)
+    }) : new import_undici2.Agent();
+    try {
+      return await fetchRelease(
+        url,
+        token,
+        (url2, options) => (0, import_undici2.fetch)(url2, { ...options, dispatcher })
+      );
+    } finally {
+      await dispatcher.destroy();
+    }
+  }
   debug(message) {
     debug(message);
   }
@@ -25238,8 +25331,8 @@ var GitHubPipeline = class {
   async mkdirP(p) {
     return mkdirP(p);
   }
-  async downloadTool(url) {
-    return downloadTool(url);
+  async downloadTool(url, dest) {
+    return downloadTool(url, dest);
   }
   async extractZip(archivePath, dest) {
     return extractZip(archivePath, dest);
@@ -25253,7 +25346,10 @@ var GitHubPipeline = class {
 };
 async function run() {
   try {
-    await getConfig(getInput(Version, { trimWhitespace: false })).configure(new GitHubPipeline());
+    await getConfig(
+      getInput(Version, { trimWhitespace: false }),
+      getInput("sha256", { trimWhitespace: false })
+    ).configure(new GitHubPipeline());
   } catch (error2) {
     if (error2 instanceof Error) setFailed(error2.message);
   }

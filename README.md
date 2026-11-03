@@ -46,3 +46,37 @@ For both GitHub Actions (`with.version`) and Azure DevOps (`inputs.version`),
 and digits separated by dots or hyphens. Paths, URLs, query strings, fragments,
 whitespace, and trailing newlines are rejected before downloading.
 Only Windows x64 and arm64 are supported.
+
+## Download verification
+
+Both integrations verify the release ZIP's SHA-256 **before extraction**.
+By default, the digest comes from the official repository's GitHub release API.
+`latest` is resolved to a specific release tag before downloading. Missing or
+invalid metadata, API failures (including rate limits), and digest mismatches
+fail setup rather than installing unverified code.
+GitHub Actions uses `github-token` (default: `${{ github.token }}` on github.com,
+empty on GitHub Enterprise Server) for these public API requests to avoid the
+shared unauthenticated rate limit. Enterprise workflows can explicitly supply
+a public github.com token, rather than sending an enterprise token to github.com.
+Azure DevOps supports
+the same optional input; supply a secret pipeline variable if needed. The token
+is used only for the official release API, never for archive downloads.
+Azure DevOps metadata requests honor the agent's proxy/bypass and CA/client
+certificate settings. Metadata requests reject redirects and have a 30-second
+deadline, including reading the response body.
+The verified installation replaces an existing copy in the managed tool directory
+so setup never silently reuses an older, unverified executable.
+Downloads use an explicit path in the owned staging directory, which is cleaned
+even when the downloader rejects after writing only part of the ZIP. Extraction
+uses a separate child directory so the archive is not copied into the installation.
+
+For stronger assurance, supply `sha256` with an independently obtained,
+64-character hexadecimal digest for the runner's architecture, together with a
+specific `version`. This avoids the release API lookup. In GitHub Actions these
+are `with` inputs; in Azure DevOps they are task `inputs`. With `latest`, a
+supplied digest must also match the resolved release metadata.
+
+Release API digests detect corrupt or substituted downloads, but do not protect
+against an attacker who can replace both an official release asset and its
+metadata. A caller-pinned digest provides an independent trust anchor. Keep
+version and digest inputs in trusted pipeline configuration.
